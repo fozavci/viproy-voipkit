@@ -24,7 +24,7 @@ class Metasploit3 < Msf::Auxiliary
 			'Name'        => 'SIP User Enumerator (UDP)',
 			'Version'     => '1',
 			'Description' => 'Enumeration Module for SIP Services',
-			'Author'      => 'Fatih Ozavci <gamasec.net/fozavci>',
+			'Author'      => 'Fatih Ozavci <viproy.com/fozavci>',
 			'License'     => MSF_LICENSE
 		)
 	

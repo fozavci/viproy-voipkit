@@ -24,7 +24,7 @@ class Metasploit3 < Msf::Auxiliary
 			'Name'        => 'SIP Invite Tester (UDP)',
 			'Version'     => '1',
 			'Description' => 'Invite Testing Module for SIP Services',
-			'Author'      => 'Fatih Ozavci <gamasec.net/fozavci>',
+			'Author'      => 'Fatih Ozavci <viproy.com/fozavci>',
 			'License'     => MSF_LICENSE
 		)
 	

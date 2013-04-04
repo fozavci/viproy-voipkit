@@ -24,7 +24,7 @@ class Metasploit3 < Msf::Auxiliary
 			'Name'        => 'SIP User and Password Brute Forcer (UDP)',
 			'Version'     => '1',
 			'Description' => 'Brute Force Module for SIP Services',
-			'Author'      => 'Fatih Ozavci <gamasec.net/fozavci>',
+			'Author'      => 'Fatih Ozavci <viproy.com/fozavci>',
 			'License'     => MSF_LICENSE
 		)
 

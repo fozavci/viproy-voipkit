@@ -23,7 +23,7 @@ class Metasploit3 < Msf::Auxiliary
 			'Name'        => 'SIP Register Discovery (UDP)',
 			'Version'     => '1',
 			'Description' => 'Register Discovery Module for SIP Services',
-			'Author'      => 'Fatih Ozavci <gamasec.net/fozavci>',
+			'Author'      => 'Fatih Ozavci <viproy.com/fozavci>',
 			'License'     => MSF_LICENSE
 		)
 

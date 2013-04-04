@@ -1,8 +1,8 @@
 # -*- coding: binary -*-
 # $Id: gsiplib.rb 15548 2012-06-29 06:08:20Z rapid7 $
 #Gamasec SIP Library
-#Author : Fatih Ozavci - gamasec.net/fozavci
-#Github : github.com/fozavci/gamasec-sipmodules
+#Author : Fatih Ozavci - viproy.com/fozavci
+#Github : github.com/fozavci/viproy-voipkit
 
 require 'rex/socket'
 require 'timeout'

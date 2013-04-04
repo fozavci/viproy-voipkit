@@ -1,12 +1,13 @@
-#SIP Services Testing Modules for Metasploit Framework
+#Viproy - VoIP Penetration Testing Kit
+SIP and NGN Services Testing Modules for Metasploit Framework
 
-
-VulnVOIP is vulnerable SIP server, you can use it for tests<br>
-VulnVOIP : http://www.rebootuser.com/?cat=371<br>
-
-I will publish a SIP Pen-test guide soon at www.gamasec.net/fozavci<br>
+I will publish a SIP Pen-test guide soon at viproy.com/fozavci<br>
 Basic Usage of Modules are presented below, it can be used before guide.
 All modules have DEBUG and VERBOSE supports
+
+#Test Network
+VulnVOIP is vulnerable SIP server, you can use it for tests<br>
+VulnVOIP : http://www.rebootuser.com/?cat=371<br>
 
 #INSTALLATION
 Copy all "lib" and "modules" folders' content to Metasploit Root Directory.
