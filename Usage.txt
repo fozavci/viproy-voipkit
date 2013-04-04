@@ -1,0 +1,74 @@
+#SIP Services Testing Modules for Metasploit Framework
+
+
+#VulnVOIP is vulnerable SIP server, you can use it for tests
+#VulnVOIP : http://www.rebootuser.com/?cat=371 
+
+#I will publish a SIP Pen-test guide soon at www.gamasec.net/fozavci
+#Basic Usage of Modules are presented below, it can be used before guide.
+#All modules have DEBUG and VERBOSE supports
+
+#Sample Usage Video
+#http://youtu.be/1vDTujNVKGM
+
+#GLOBAL SETTINGS
+setg CHOST 172.16.100.1 #Local Host
+setg RHOSTS 172.16.100.6 #Target Host
+setg RHOST 172.16.100.6 #Target Host
+
+#Basic Usage of REGISTER Module 
+use auxiliary/scanner/sip/gsipregister
+show options 
+run
+
+set LOGIN true
+set USERNAME 101
+set PASSWORD s3cur3
+run
+
+#Basic Usage of OPTIONS Module
+use auxiliary/scanner/sip/gsipoptions 
+show options 
+run
+set DEBUG true
+run
+set VERBOSE true
+run
+
+#Basic Usage of INVITE Module
+use auxiliary/scanner/sip/gsipinvite 
+show options 
+set FROM 101
+run
+
+set LOGIN true
+set USERNAME 101
+set PASSWORD s3cur3
+run
+
+
+#Basic Usage of ENUMERATOR Module
+use auxiliary/scanner/sip/gsipenumerator 
+show options 
+set NUMERIC_USERS true
+set NUMERIC_MAX 500
+run
+
+set METHOD REGISTER
+run
+
+set METHOD INVITE
+run
+
+#Basic Usage of BRUTE FORCE Module
+use auxiliary/scanner/sip/gsipbruteforce 
+show options 
+set PASS_FILE /tmp/passwords 
+set NUMERIC_USERS true
+set NUMERIC_MAX 500
+run
+
+set USER_FILE /tmp/users
+set NUMERIC_USERS false
+run
+
