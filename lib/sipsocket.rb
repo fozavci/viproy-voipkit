@@ -1,11 +1,11 @@
 # -*- coding: binary -*-
-# $Id: gsiplib.rb 15548 2012-06-29 06:08:20Z rapid7 $
-#Gamasec SIP Library
-#Author : Fatih Ozavci - viproy.com/fozavci
+#Viproy SIP Library
+#Author : Fatih Ozavci - gamasec.net/fozavci
 #Github : github.com/fozavci/viproy-voipkit
 
 require 'rex/socket'
 require 'timeout'
+require 'msf/core'
 
 module SIP
 
@@ -33,6 +33,7 @@ class Socket
 		self.context = context
 		self.sock = nil	
 		start	
+
 	end
     
 	#
@@ -44,12 +45,16 @@ class Socket
 			'LocalPort' => listen_port,
 			'Context'   => context
 			)
+	end
+    
+	#
+	# Start the SIPSocket Monitor
+	#    
+	def start_monitor
 		self.thread = Rex::ThreadFactory.spawn("SIPServerMonitor", false) {
 			monitor_socket
 		}
 	end
-
-
 	#
 	# Stop the SIPSocket 
 	#
@@ -69,11 +74,11 @@ class Socket
 				return "No Response"
 			when :succeed_withoutlogin
 				return "Request Succeed without Login Information"			
-            when :ringing
+            		when :ringing
 				return "Ringing"
-            when :user_busy
+            		when :user_busy
 				return "User is Busy"
-            when :succeed
+            		when :succeed
 				return "Request Succeed"
 			when :failed
 				return "Authentication Failed"
@@ -97,7 +102,7 @@ class Socket
 	#
 	# Sending Register
 	# 
-    def register(req_options={})        
+	def register(req_options={})        
 	    login = req_options["login"] || false
 	    result,rdata,rdebug,rawdata,callopts=generic_request("REGISTER",req_options)
 	    if :received and rdata != nil
@@ -117,86 +122,93 @@ class Socket
 		    end
 	    end
 	    return result,rdata,rdebug,rawdata,callopts
-    end
+	end
 	
 	#
 	# Sending Options
 	#    
-    def send_options(req_options={})        
-        return generic_request("OPTIONS",req_options)
-    end
-	
+	def send_options(req_options={})        
+		return generic_request("OPTIONS",req_options)
+	end
+
 	#
 	# Sending Subscribe
 	#    
-    def send_subscribe(req_options={})
-	    return generic_request("SUBSCRIBE",req_options)
-    end		
+	def send_subscribe(req_options={})
+		return generic_request("SUBSCRIBE",req_options)
+	end		
 
 	#
 	# Sending ACK
 	#    
-    def send_ack(req_options={})
-	    return generic_request("ACK",req_options,no_response=true)
-    end		
+	def send_ack(req_options={})
+		return generic_request("ACK",req_options,no_response=true)
+	end		
 
   	#
 	# Sending Invite
 	#    
-    def send_invite(req_options={})
-        login = req_options["login"] || false
-        loginmethod = req_options["loginmethod"] || "INVITE"
+	def send_invite(req_options={})
+		login = req_options["login"] || false
+		loginmethod = req_options["loginmethod"] || "INVITE"
 
-        if login and loginmethod == "REGISTER"
-            #From and TO fields should be same for REGISTER
-            regopts=req_options.clone
-            regopts['from']=regopts['user']
-            regopts['to']=regopts['user']
-            reg_result,rdata,rdebug,rawdata,callopts=register(regopts)
+		if login and loginmethod == "REGISTER"
+		    #From and TO fields should be same for REGISTER
+		    regopts=req_options.clone
+		    regopts['from']=regopts['user']
+		    regopts['to']=regopts['user']
+		    reg_result,rdata,rdebug,rawdata,callopts=register(regopts)
 
-            req_options['callopts']=callopts if callopts != nil
+		    req_options['callopts']=callopts if callopts != nil
 
-            # Cleaning Old Session Data
-            req_options['nonce'] = nil
-            req_options['callopts'].delete('seq')
-            req_options['callopts'].delete('callid')
-            req_options['callopts'].delete('tag')
-        end
-        
-
-
-        result,rdata,rdebug,rawdata,callopts=generic_request("INVITE",req_options)
+		    # Cleaning Old Session Data
+		    req_options['nonce'] = nil
+		    req_options['callopts'].delete('seq')
+		    req_options['callopts'].delete('callid')
+		    req_options['callopts'].delete('tag')
+		end
 
 
-        if :received and rdata != nil 
-            result = parse_rescode(rdata)
-            case result
-            when :cred_required
-                if login
-                    ack_options=req_options.clone
-                    ack_options['callopts']=callopts.clone
-                    ack_options['callopts'].delete('seq')
-                    send_ack(ack_options)
-                    
-                    result,rdata,rdebug,rawdata,callopts=auth("INVITE",rdata,rdebug,rawdata,req_options,callopts) 
-                    if :received and rdata != nil 
-                        result = parse_rescode(rdata)
-                    else
-                        result = :protocol_error
-                    end
-                end
-            when :succeed
-                result = :succeed_withoutlogin if reg_result != :succeed and result == :succeed            
-    	    else
-		        result = :protocol_error
-            end
-	    end
-        return result,rdata,rdebug,rawdata,callopts
-    end			
+
+		result,rdata,rdebug,rawdata,callopts=generic_request("INVITE",req_options)
+
+
+		if :received and rdata != nil 
+			result = parse_rescode(rdata)
+			case result
+			when :cred_required
+			if login
+				ack_options=req_options.clone
+				ack_options['callopts']=callopts.clone
+				ack_options['callopts'].delete('seq')
+				send_ack(ack_options)
+
+				result,rdata,rdebug,rawdata,callopts=auth("INVITE",rdata,rdebug,rawdata,req_options,callopts) 
+				if :received and rdata != nil 
+					result = parse_rescode(rdata)
+				else
+					result = :protocol_error
+				end
+			end
+			when :succeed
+				result = :succeed_withoutlogin if reg_result != :succeed and result == :succeed            
+			else
+				result = :protocol_error
+			end
+			end
+		return result,rdata,rdebug,rawdata,callopts
+	end			
+
+	#Dispatch Requests 
+	def dispatch_request(from,buf)
+		puts "SIPSocket :"
+		puts "From:"+from.to_s
+		puts "Buffer:"+buf.to_s
+	end
 
 protected
 
-	#Monitor Socket for Reponses 
+	#Monitor Socket
 	def monitor_socket
 		while true
 			rds = [@sock]
@@ -211,11 +223,6 @@ protected
 		end
 	end
 
-	#Monitor Socket for Reponses 
-	def dispatch_request(from,buf)
-		puts "From:"+from.to_s
-		puts "Buffer:"+buf.to_s
-	end
 
 
 	#
@@ -301,6 +308,7 @@ protected
             return rdata,rawdata
 	end
 	
+
 	#Response Check
 	def resp_get(method,rdebug=[])
 		possible= /^18|^20|^40|^48|^60|^50/
@@ -341,7 +349,6 @@ protected
 		return callopts,send_state
 	end
 
-
 	#
 	# Preparing Request
 	#    
@@ -376,7 +383,7 @@ protected
 		if fromname != nil   
 			data << "From: \"#{fromname}\" <sip:#{from}@#{realm}>;tag=#{tag}\r\n"
 		else
-			data << "<sip:#{from}@#{realm}>;tag=#{tag}\r\n"
+			data << "From: <sip:#{from}@#{realm}>;tag=#{tag}\r\n"
 		end
 		data << "Call-ID: #{callid}@#{listen_addr}\r\n"
 		data << "CSeq: #{seq} #{req_type}\r\n"
@@ -449,7 +456,7 @@ protected
 		rdata["source"] = "#{pkt[1].split(":")[3]}:#{pkt[2]}"
 
 		rdata["resp"] = pkt[0].split(/\s+/)[1]
-        rdata["resp_msg"] = pkt[0].split("\r")[0]
+        	rdata["resp_msg"] = pkt[0].split("\r")[0]
 
 
 		if(pkt[0] =~ /^User-Agent:\s*(.*)$/i)
@@ -473,10 +480,10 @@ protected
 			rdata["digest"] = {}
 			data.split(",").each { |d| rdata["digest"][d.split("=")[0].gsub(" ","")]=d.split("=")[1].gsub("\"",'')}
 		end
-        if(pkt[0] =~ /^From:\s+(.*)$/)
+        	if(pkt[0] =~ /^From:\s+(.*)$/)
 			rdata["from"] = "#{$1.strip.split(";")[0].gsub(/[<sip:|>]/,"")}"
 		end
-        if(pkt[0] =~ /^To:\s+(.*)$/)
+        	if(pkt[0] =~ /^To:\s+(.*)$/)
 			rdata["to"] = "#{$1.strip.split(";")[0].gsub(/[<sip:|>]/,"")}"
 		end
 		return rdata,rawdata
