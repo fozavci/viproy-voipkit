@@ -170,7 +170,7 @@ class Metasploit3 < Msf::Auxiliary
 		fromname="#{src_addr}:#{src_port}" if fromname.nil?
 
 		#Preparing Request
-		data =  "INVITE sip:#{to}@192.168.1.201 SIP/2.0\r\n"
+		data =  "INVITE sip:#{to}@{ip} SIP/2.0\r\n"
 		data += "Via: SIP/2.0/UDP #{src_addr}:#{src_port};branch=branch#{Rex::Text.rand_text_alphanumeric(10)};rport\r\n"
 		data += "Max-Forwards: 70\r\n"
 		if fromname == nil
