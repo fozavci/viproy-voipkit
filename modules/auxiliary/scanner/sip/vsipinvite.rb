@@ -67,9 +67,22 @@ class Metasploit3 < Msf::Auxiliary
 		user = datastore['USERNAME']
 		password = datastore['PASSWORD']	
 		realm = datastore['REALM']
-		from = datastore['FROM']
-		fromname = datastore['FROMNAME'] || nil
-		to = datastore['TO']
+		if datastore['FROM'] =~ /FUZZ/
+			from="A"*datastore['FROM'].split(" ")[1].to_i
+			fromname=qunil
+		else
+			from = datastore['FROM'] 
+			if datastore['FROMNAME'] =~ /FUZZ/ 
+				fromname="1"*datastore['FROMNAME'].split(" ")[1].to_i
+			else
+				fromname = datastore['FROMNAME'] || datastore['FROM']
+			end
+		end
+		if datastore['TO'] =~ /FUZZ/
+			from="A"*datastore['TO'].split(" ")[1].to_i
+		else
+			to = datastore['TO']
+		end
 		login = datastore['LOGIN']
 		logintype = datastore['LOGINTYPE']
 		listen_addr = datastore['CHOST']
