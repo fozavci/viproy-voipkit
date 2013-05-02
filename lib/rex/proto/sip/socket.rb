@@ -79,7 +79,7 @@ class Socket
 		when :server_error
 			return "Internal Server Error"
 		when :nodigest
-			return "No Digest Found in '401 Unauthorized' Response"
+			return "No Digest Found in 'Unauthorized' Response"
 		when :authorization_error
 			return "Authorization Error"
 		when :decline_error
@@ -101,7 +101,7 @@ class Socket
 		    case rdata['resp']
 			    when "200"
 				    result=:succeed_withoutlogin
-			    when "401"
+			    when /^40/
 				    if login
 					    result,rdata,rdebug,rawdata,callopts=auth("REGISTER",rdata,rdebug,rawdata,req_options,callopts)
 				    else
@@ -221,7 +221,7 @@ protected
 		    result=:succeed
 		when "180"
 		    result=:ringing
-		when "401"
+		when /^40/
 		    result=:cred_required			    
 		when "486"
 		    result=:user_busy	
@@ -258,6 +258,7 @@ protected
 	def auth(method,rdata,rdebug,rawdata,req_options,callopts=nil)
 		if rdata['digest']
 			req_options['nonce']=rdata['digest']['nonce']
+			req_options['authtype']=rdata['digest']['authtype']
 			req_options['digest_realm']=rdata['digest']['realm']
 			req_options['callopts']=callopts if callopts != nil
 
@@ -276,7 +277,7 @@ protected
 					return :succeed,rdata,rdebug,rawdata,callopts
 				when "/^18/"
 					return :succeed,rdata,rdebug,rawdata,callopts
-				when /^401/
+				when /^40/
 					return :failed,rdata,rdebug,rawdata,callopts
 				else
 					return :authorization_error,rdata,rdebug,rawdata,callopts
@@ -341,7 +342,7 @@ protected
 	#    
 	def create_req(req_type,req_options)
 		customheader=req_options['customheader'] || nil
-		realm=req_options['realm'] || dest_addr
+		realm=req_options['digest_realm'] || req_options['realm'] || dest_addr
 		user=req_options['user'] 
 		from=req_options['from']  || user
 		fromname=req_options['fromname']  || nil
@@ -353,6 +354,7 @@ protected
 		callid=callopts['callid'] || callid="call#{Rex::Text.rand_text_alphanumeric(30)}"
 		tag=callopts['tag'] || tag="tag#{Rex::Text.rand_text_alphanumeric(20)}"
 		branch=callopts['branch'] || branch="branch#{Rex::Text.rand_text_alphanumeric(50)}"
+
 
 		case req_type 
 		when 'SUBSCRIBE' 
@@ -394,6 +396,7 @@ protected
 
 		if nonce !=nil
 		    resp=nonce_resp(user,req_options['digest_realm'],password,nonce,uri,req_type)
+		    data << "Proxy-" if req_options["authtype"] == "proxy"
 		    data << "Authorization: Digest username=\"#{user}\",realm=\"#{req_options['digest_realm']}\",nonce=\"#{nonce}\",uri=\"#{uri}\",response=\"#{resp}\"\r\n"
 		end
 
@@ -466,6 +469,13 @@ protected
 			data="#{$1.strip.gsub("Digest ","")}"
 			rdata["digest"] = {}
 			data.split(",").each { |d| rdata["digest"][d.split("=")[0].gsub(" ","")]=d.split("=")[1].gsub("\"",'')}
+			rdata["digest"]["authtype"]="www"
+		end
+		if(pkt[0] =~ /^Proxy-Authenticate:\s*(.*)$/i)
+			data="#{$1.strip.gsub("Digest ","")}"
+			rdata["digest"] = {}
+			data.split(",").each { |d| rdata["digest"][d.split("=")[0].gsub(" ","")]=d.split("=")[1].gsub("\"",'')}
+			rdata["digest"]["authtype"]="proxy"
 		end
         	if(pkt[0] =~ /^From:\s+(.*)$/)
 			rdata["from"] = "#{$1.strip.split(";")[0].gsub(/[<sip:|>]/,"")}"
