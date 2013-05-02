@@ -45,6 +45,7 @@ class Metasploit3 < Msf::Auxiliary
 
 		register_advanced_options(
 		[
+			OptString.new('CONTACT',   [ false, "Contact Field for Target SIP Server", nil]),
 			OptBool.new('P-Asserted-Identity', [false, 'Spoof for Proxy Identity Field', false]),
 			OptString.new('CUSTOMHEADER', [false, 'Custom Headers for Requests', nil]),
 			OptString.new('P-Charging-Vector', [false, 'Proxy Charging Field. Sample: icid-value=msanicid;msan-id=msan123;msan-pro=1 ', nil]),
@@ -74,8 +75,18 @@ class Metasploit3 < Msf::Auxiliary
 
 			if datastore['ACTION'] == 'CALL'
 				if datastore['FROM']
-					from = datastore['FROM'] 
-					fromname = datastore['FROMNAME'] || datastore['FROM'] 
+					if datastore['FROM'] =~ /FUZZ/
+						from="A"*datastore['FROM'].split(" ")[1].to_i
+						fromname=nil
+					else
+						from = datastore['FROM'] 
+						if datastore['FROMNAME'] =~ /FUZZ/ 
+							fromname="1"*datastore['FROMNAME'].split(" ")[1].to_i
+						else
+							fromname = datastore['FROMNAME'] || datastore['FROM']
+						end
+					end
+					 
 				else
 					raise ArgumentError, "FROM must be defined"
 				end
@@ -162,9 +173,19 @@ class Metasploit3 < Msf::Auxiliary
 		data =  "INVITE sip:#{to}@192.168.1.201 SIP/2.0\r\n"
 		data += "Via: SIP/2.0/UDP #{src_addr}:#{src_port};branch=branch#{Rex::Text.rand_text_alphanumeric(10)};rport\r\n"
 		data += "Max-Forwards: 70\r\n"
-		data += "From: \"#{fromname}\" <sip:#{from}@#{src_addr}>;tag=tag#{Rex::Text.rand_text_alphanumeric(10)}\r\n"
-		data += "To: <sip:#{to}@192.168.1.201>\r\n"
-		data += "Contact: <sip:#{from}@#{src_addr}>\r\n"
+		if fromname == nil
+			data += "From: <sip:#{from}@#{ip}>\r\n"
+		else
+			data += "From: \"#{fromname}\" <sip:#{from}@#{src_addr}>;tag=tag#{Rex::Text.rand_text_alphanumeric(10)}\r\n"
+		end
+		data += "To: <sip:#{to}@#{ip}>\r\n"
+		if datastore['FROM'] =~ /FUZZ/
+			data += "Contact: <sip:123@#{src_addr}>\r\n"
+		elsif datastore['CONTACT'] =~ /FUZZ/
+			data += "Contact: <sip:#{"A"*datastore['CONTACT'].split(" ")[1].to_i}@#{src_addr}>\r\n"
+		else
+			data += "Contact: <sip:#{from}@#{src_addr}>\r\n"
+		end
 		data += "Call-ID: call#{Rex::Text.rand_text_alphanumeric(10)}@#{src_addr}\r\n"
 		data += "CSeq: 1 INVITE\r\n"
 		data += "User-Agent: Test Agent\r\n"
@@ -186,7 +207,13 @@ class Metasploit3 < Msf::Auxiliary
 		idata += "a=ptime:20\r\n"
 		idata += "a=sendrec\r\n"
 
-		data += "Content-Length: #{idata.length}\r\n\r\n#{idata}"		
+		data += "Content-Length: #{idata.length}\r\n\r\n#{idata}"
+		#debug
+		f=File.new("/tmp/req","w")
+		f.puts data
+		f.close
+
+		return data		
 
 	end
 
