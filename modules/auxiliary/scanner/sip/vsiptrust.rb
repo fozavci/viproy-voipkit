@@ -208,11 +208,7 @@ class Metasploit3 < Msf::Auxiliary
 		idata += "a=sendrec\r\n"
 
 		data += "Content-Length: #{idata.length}\r\n\r\n#{idata}"
-		#debug
-		f=File.new("/tmp/req","w")
-		f.puts data
-		f.close
-
+		
 		return data		
 
 	end
