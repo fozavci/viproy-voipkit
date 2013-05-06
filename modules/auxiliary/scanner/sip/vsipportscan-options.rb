@@ -85,41 +85,5 @@ class Metasploit3 < Msf::Auxiliary
 	        stop
 
 	end
-
-
-	def trivia
-		case result
-		when :received
-			report = "#{rdata['source']}\tResponse: #{rdata['resp_msg'].split(" ")[1,5].join(" ")}\n"
-			report <<"Server \t: #{rdata['server']}\n" if rdata['server']
-			report << "User-Agent \t: #{rdata['agent']}\n"	if rdata['agent']
-			print_good(report)
-
-			report_auth_info(
-				:host	=> dest_addr,
-				:port	=> datastore['RPORT'],
-				:sname	=> 'sip',
-				:proof  => nil,
-				:source_type => "user_supplied",
-				:active => true
-			)
-		else
-			vprint_status("#{dest_addr}:#{dest_port} : #{convert_error(result)}")
-		end
-
-		#Debug
-		if datastore['DEBUG'] == true
-			if rdata !=nil
-				report = "#{rdata['source']}\tresponse: #{rdata['resp_msg'].split(" ")[1,5].join(" ")}\n"
-				report <<"Server \t: #{rdata['server']}\n" if rdata['server']
-				report <<"User-Agent \t: #{rdata['agent']}\n"	if rdata['agent']
-				report <<"Realm \t: #{rdata['digest']['realm']}\n" if rdata['digest']
-				print_debug(report)
-			end
-
-			rawdata.split("\n").each { |r| print_debug("Response Details: #{r}") } if rdata != nil
-			rdebug.each { |r| print_debug("Irrelevant Responses :  #{r['resp']} #{r['resp_msg']}") } if rdebug
-		end	
-    	end
 end
 
