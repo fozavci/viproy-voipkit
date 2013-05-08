@@ -70,13 +70,17 @@ class Metasploit3 < Msf::Auxiliary
 
 
 				if result == :received and ! (rdata['resp_msg'] =~ /timeout/)
-					report = "#{rhost} #{rport} is Open\n"
+					if rdata["contact"]
+					report = "#{rdata["contact"].gsub("sip:","")} is Open\n"
+					else
+					report = "#{rhost}:#{rport} is Open\n"
+					end
 					report <<"    Server \t: #{rdata['server']}\n" if rdata['server']
 					report <<"    User-Agent \t: #{rdata['agent']}\n"	if rdata['agent']
 					print_good(report)
 
 				else
-					vprint_status("#{rhost} #{rport} is Close/Filtered\n")
+					vprint_status("#{rhost}:#{rport} is Close/Filtered\n")
 				end
 
 			end

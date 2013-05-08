@@ -483,6 +483,9 @@ protected
         	if(pkt[0] =~ /^To:\s+(.*)$/)
 			rdata["to"] = "#{$1.strip.split(";")[0].gsub(/[<sip:|>]/,"")}"
 		end
+        	if(pkt[0] =~ /^Contact:\s+(.*)$/)
+			rdata["contact"] = "#{$1.strip.gsub(/[<|>]/,"")}"
+		end
 		return rdata,rawdata
 	end    
       
