@@ -257,9 +257,7 @@ protected
 	#
 	def auth(method,rdata,rdebug,rawdata,req_options,callopts=nil)
 		if rdata['digest']
-			req_options['nonce']=rdata['digest']['nonce']
-			req_options['authtype']=rdata['digest']['authtype']
-			req_options['digest_realm']=rdata['digest']['realm']
+			req_options['digest']=rdata['digest']
 			req_options['callopts']=callopts if callopts != nil
 
 			#Sending Request with Nonce
@@ -312,11 +310,43 @@ protected
  	#
 	# Nonce Calculation
 	#
-	def nonce_resp(user,realm,password,nonce,uri,req_type)
-		hash1 = Digest::MD5.hexdigest("#{user}:#{realm}:#{password}")
-		hash2 = Digest::MD5.hexdigest("#{req_type}:#{uri}")
-		response=Digest::MD5.hexdigest("#{hash1}:#{nonce}:#{hash2}")
+	def auth_calc(digestopts)
+		cnonce=Rex::Text.rand_text_alphanumeric(10)
+		nc="00000001"
+
+		if digestopts['algorithm'] == 'MD5-sess'
+			h1 = Digest::MD5.hexdigest("#{digestopts['username']}:#{digestopts['realm']}:#{digestopts['password']}")
+			hash1 = Digest::MD5.hexdigest("#{h1}:#{digestopts['nonce']}:#{cnonce}")
+		else
+			hash1 = Digest::MD5.hexdigest("#{digestopts['username']}:#{digestopts['realm']}:#{digestopts['password']}")
+			puts "A1 => "+"#{digestopts['username']}:#{digestopts['realm']}:#{digestopts['password']}"
+			puts "Hash1 => "+hash1
+		end
+
+		hash2 = Digest::MD5.hexdigest("#{digestopts['req_type']}:#{digestopts['uri']}")	
+		puts "A2 => "+"#{digestopts['req_type']}:#{digestopts['uri']}"
+		puts "Hash2 => "+hash2
+
+		if digestopts['qop'] =~ /auth/
+			response=Digest::MD5.hexdigest("#{hash1}:#{digestopts['nonce']}:#{nc}:#{cnonce}:#{digestopts['qop']}:#{hash2}")
+			puts "Response Data => "+"#{hash1}:#{digestopts['nonce']}:#{nc}:#{cnonce}:#{digestopts['qop']}:#{hash2}"
+			puts "Response Auth => "+response
+		else
+			response=Digest::MD5.hexdigest("#{hash1}:#{digestopts['nonce']}:#{hash2}")
+		end
+
+		authdata = "username=\"#{digestopts['username']}\", realm=\"#{digestopts['realm']}\", nonce=\"#{digestopts['nonce']}\", uri=\"#{digestopts['uri']}\", response=\"#{response}\""
+		if digestopts['algorithm']
+			authdata << ", algorithm=#{digestopts['algorithm']}" 
+		else
+			authdata << ", algorithm=MD5"
+		end
+		authdata << ", cnonce=\"#{cnonce}\"" if digestopts['algorithm'] == "MD5-sess" or digestopts['qop'] =~ /auth/ 
+		authdata << ", qop=#{digestopts['qop']}, nc=#{nc}" if digestopts['qop'] =~ /auth/
+
+		return authdata
 	end
+
 
       
 	#
@@ -348,7 +378,6 @@ protected
 		fromname=req_options['fromname']  || nil
 		to=req_options['to'] || user           
 		password=req_options['password'] || nil
-		nonce=req_options['nonce'] || nil 
 		callopts=req_options['callopts'] || {}
 		seq=callopts['seq'].to_i+1 || seq=1
 		callid=callopts['callid'] || callid="call#{Rex::Text.rand_text_alphanumeric(30)}"
@@ -394,10 +423,14 @@ protected
 			data << "Accept: application/simple-message-summary\r\n"
 		end
 
-		if nonce !=nil
-		    resp=nonce_resp(user,req_options['digest_realm'],password,nonce,uri,req_type)
-		    data << "Proxy-" if req_options["authtype"] == "proxy"
-		    data << "Authorization: Digest username=\"#{user}\",realm=\"#{req_options['digest_realm']}\",nonce=\"#{nonce}\",uri=\"#{uri}\",response=\"#{resp}\"\r\n"
+		if req_options['digest'] 
+			req_options['digest']['username']=user
+			req_options['digest']['password']=password
+			req_options['digest']['uri']=uri
+			req_options['digest']['req_type']=req_type
+			authdata=auth_calc(req_options['digest'])
+			data << "Proxy-" if req_options['digest']["authtype"] == "proxy"
+			data << "Authorization: Digest #{authdata}\r\n"
 		end
 
 		if req_type == 'INVITE'
@@ -469,7 +502,8 @@ protected
 			data="#{$1.strip.gsub("Digest ","")}"
 			rdata["digest"] = {}
 			data.split(",").each { |d| rdata["digest"][d.split("=")[0].gsub(" ","")]=d.split("=")[1].gsub("\"",'')}
-			rdata["digest"]["authtype"]="www"
+			rdata["digest"]["
+pe"]="www"
 		end
 		if(pkt[0] =~ /^Proxy-Authenticate:\s*(.*)$/i)
 			data="#{$1.strip.gsub("Digest ","")}"
