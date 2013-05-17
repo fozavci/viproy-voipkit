@@ -399,7 +399,9 @@ protected
 		data << "Via: SIP/2.0/UDP #{listen_addr}:#{listen_port};branch=#{branch};rport\r\n" 
 		data << "Max-Forwards: 20\r\n"
 		data << "To: <sip:#{to}@#{realm}>\r\n"
-		if fromname != nil   
+		if from =~ /@/
+			data << "From: <sip:#{from}>;tag=#{tag}\r\n"
+		elsif fromname != nil   
 			data << "From: \"#{fromname}\" <sip:#{from}@#{realm}>;tag=#{tag}\r\n"
 		else
 			data << "From: <sip:#{from}@#{realm}>;tag=#{tag}\r\n"
