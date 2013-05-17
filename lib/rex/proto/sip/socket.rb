@@ -2,6 +2,7 @@
 #Viproy SIP Library
 #Author : Fatih Ozavci - viproy.com/fozavci
 #Github : github.com/fozavci/viproy-voipkit
+#License: MSF_LICENSE
 
 require 'rex/socket'
 require 'timeout'
