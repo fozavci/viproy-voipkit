@@ -73,6 +73,8 @@ class Socket
 			return "User is Busy"
     		when :succeed
 			return "Request Succeed"
+    		when :not_found
+			return "Not Found"
 		when :failed
 			return "Authentication Failed"
 		when :send_error
@@ -222,6 +224,8 @@ protected
 		    result=:succeed
 		when "180"
 		    result=:ringing
+		when /^404/
+		    result=:not_found
 		when /^40/
 		    result=:cred_required			    
 		when "486"
@@ -373,7 +377,11 @@ protected
 	#    
 	def create_req(req_type,req_options)
 		customheader=req_options['customheader'] || nil
-		realm=req_options['digest_realm'] || req_options['realm'] || dest_addr
+		if req_options['realm'] == "IP"
+			realm=dest_addr
+		else
+			realm=req_options['digest_realm'] || req_options['realm'] || dest_addr			
+		end
 		user=req_options['user'] 
 		from=req_options['from']  || user
 		fromname=req_options['fromname']  || nil
