@@ -324,13 +324,9 @@ protected
 			hash1 = Digest::MD5.hexdigest("#{h1}:#{digestopts['nonce']}:#{cnonce}")
 		else
 			hash1 = Digest::MD5.hexdigest("#{digestopts['username']}:#{digestopts['realm']}:#{digestopts['password']}")
-			puts "A1 => "+"#{digestopts['username']}:#{digestopts['realm']}:#{digestopts['password']}"
-			puts "Hash1 => "+hash1
 		end
 
 		hash2 = Digest::MD5.hexdigest("#{digestopts['req_type']}:#{digestopts['uri']}")	
-		puts "A2 => "+"#{digestopts['req_type']}:#{digestopts['uri']}"
-		puts "Hash2 => "+hash2
 
 		if digestopts['qop'] =~ /auth/
 			response=Digest::MD5.hexdigest("#{hash1}:#{digestopts['nonce']}:#{nc}:#{cnonce}:#{digestopts['qop']}:#{hash2}")
