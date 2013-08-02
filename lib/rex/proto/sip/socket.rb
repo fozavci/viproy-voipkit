@@ -140,6 +140,13 @@ class Socket
 		return generic_request("ACK",req_options,no_response=true)
 	end		
 
+	#
+	# Sending MESSAGE
+	#    
+	def send_message(req_options={})
+		return generic_request("MESSAGE",req_options)
+	end
+
   	#
 	# Sending Invite
 	#    
@@ -330,8 +337,8 @@ protected
 
 		if digestopts['qop'] =~ /auth/
 			response=Digest::MD5.hexdigest("#{hash1}:#{digestopts['nonce']}:#{nc}:#{cnonce}:#{digestopts['qop']}:#{hash2}")
-			puts "Response Data => "+"#{hash1}:#{digestopts['nonce']}:#{nc}:#{cnonce}:#{digestopts['qop']}:#{hash2}"
-			puts "Response Auth => "+response
+			#puts "Response Data => "+"#{hash1}:#{digestopts['nonce']}:#{nc}:#{cnonce}:#{digestopts['qop']}:#{hash2}"
+			#puts "Response Auth => "+response
 		else
 			response=Digest::MD5.hexdigest("#{hash1}:#{digestopts['nonce']}:#{hash2}")
 		end
@@ -373,7 +380,7 @@ protected
 	#    
 	def create_req(req_type,req_options)
 		customheader=req_options['customheader'] || nil
-		if req_options['realm'] == "IP"
+		if req_options['realm'] == "IP" or req_options['realm'] == "realm.com.tr"
 			realm=dest_addr
 		else
 			realm=req_options['digest_realm'] || req_options['realm'] || dest_addr			
@@ -395,6 +402,8 @@ protected
 			uri="sip:#{user}@#{realm}"
 		when 'INVITE'
 		    	uri="sip:#{to}@#{realm}"
+		when 'MESSAGE'
+		    	uri="sip:#{to}@#{realm}"
 		else
 			uri="sip:#{realm}"
 		end
@@ -412,7 +421,11 @@ protected
 		end
 		data << "Call-ID: #{callid}@#{listen_addr}\r\n"
 		data << "CSeq: #{seq} #{req_type}\r\n"
-		data << "Contact: <sip:#{from}@#{listen_addr}:#{listen_port}>\r\n"
+		if from =~ /@/
+			data << "Contact: <sip:#{from}>\r\n"
+		else
+			data << "Contact: <sip:#{from}@#{listen_addr}:#{listen_port}>\r\n"
+		end
 		data << "User-Agent: Test Agent\r\n"
 		data << "Supported: 100rel,replaces\r\n"       
 		data << "Allow: INVITE,ACK,OPTIONS,BYE,CANCEL,SUBSCRIBE,NOTIFY,REFER,MESSAGE,INFO,PING,PRACK\r\n"
@@ -440,7 +453,8 @@ protected
 			data << "Authorization: Digest #{authdata}\r\n"
 		end
 
-		if req_type == 'INVITE'
+		case req_type 
+		when 'INVITE'
 		    sdp_ID=Rex::Text.rand_text_numeric(9)
 		    s="Source"
 
@@ -464,7 +478,11 @@ protected
 		    data << "Content-Type: application/sdp\r\n"
 		    data << "Content-Length: #{idata.length}\r\n\r\n"
 		    data << idata
-
+		when 'MESSAGE'
+		    idata=req_options['message'] || ""
+		    data << "Content-Type: text/plain\r\n"
+		    data << "Content-Length: #{idata.length}\r\n\r\n"		    
+		    data << idata
 		else
 		    data << "Content-Length: 0\r\n\r\n"
 		end
@@ -519,10 +537,10 @@ pe"]="www"
 			rdata["digest"]["authtype"]="proxy"
 		end
         	if(pkt[0] =~ /^From:\s+(.*)$/)
-			rdata["from"] = "#{$1.strip.split(";")[0].gsub(/[<sip:|>]/,"")}"
+			rdata["from"] = "#{$1.strip.split(";")[0].gsub("<sip:","").gsub(">","")}"
 		end
         	if(pkt[0] =~ /^To:\s+(.*)$/)
-			rdata["to"] = "#{$1.strip.split(";")[0].gsub(/[<sip:|>]/,"")}"
+			rdata["to"] = "#{$1.strip.split(";")[0].gsub("<sip:","").gsub(">","")}"
 		end
         	if(pkt[0] =~ /^Contact:\s+(.*)$/)
 			rdata["contact"] = "#{$1.strip.gsub(/[<|>]/,"")}"

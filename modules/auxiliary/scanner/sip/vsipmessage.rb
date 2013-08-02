@@ -18,9 +18,9 @@ class Metasploit3 < Msf::Auxiliary
 
 	def initialize
 		super(
-			'Name'        => 'SIP Invite Tester (UDP)',
+			'Name'        => 'SIP Message Tester (UDP)',
 			'Version'     => '1',
-			'Description' => 'Invite Testing Module for SIP Services',
+			'Description' => 'Message Testing Module for SIP Services',
 			'Author'      => 'Fatih Ozavci <viproy.com/fozavci>',
 			'License'     => MSF_LICENSE
 		)
@@ -38,8 +38,9 @@ class Metasploit3 < Msf::Auxiliary
 			OptString.new('REALM',   [ true, "The login realm to probe at each host", "realm.com.tr"]),
 			OptString.new('TO',   [ true, "The destination number to probe at each host", "1000"]),
 			OptString.new('FROM',   [ true, "The source number to probe at each host", "1000"]),
-			OptString.new('FROMNAME',   [ false, "Custom Name for Invite Spoofing", nil]),
-			OptBool.new('LOGIN', [false, 'Login Before Sending Invite', false]),
+			OptString.new('FROMNAME',   [ false, "Custom Name for Message Spoofing", nil]),
+			OptBool.new('LOGIN', [false, 'Login Before Sending Message', false]),
+			OptString.new('MESSAGE_CONTENT',   [ false, "Message Content", nil]),
 			Opt::RHOST,
 			Opt::RPORT(5060),
 			Opt::CHOST,	
@@ -48,7 +49,7 @@ class Metasploit3 < Msf::Auxiliary
 
 		register_advanced_options(
 		[
-			OptString.new('LOGINMETHOD', [false, 'Login Method (REGISTER | INVITE)', "INVITE"]),
+			OptString.new('LOGINMETHOD', [false, 'Login Method (REGISTER | MESSAGE)', "MESSAGE"]),
 			OptBool.new('TO_as_FROM', [true, 'Try the to field as the from field for all users', false]),
 			OptString.new('CUSTOMHEADER', [false, 'Custom Headers for Requests', nil]),
 			OptString.new('P-Asserted-Identity', [false, 'Proxy Identity Field. Sample: <sip:100@RHOST:RPORT>', nil]),
@@ -56,7 +57,8 @@ class Metasploit3 < Msf::Auxiliary
 			OptString.new('Record-Route', [false, 'Proxy Record-Route. Sample: <sip:100@RHOST:RPORT;lr>', nil]),
 			OptString.new('Route', [false, 'Proxy Route. Sample: <sip:100@RHOST:RPORT;lr>', nil]),
 			OptBool.new('DEBUG',   [ false, "Verbose Level", false]),
-			OptBool.new('VERBOSE',   [ false, "Verbose Level", false])
+			OptBool.new('VERBOSE',   [ false, "Verbose Level", false]),
+			OptInt.new('DOS_COUNT',   [true, 'Count of Messages for DOS',1]),
 		], self.class)
 	end
 
@@ -68,7 +70,7 @@ class Metasploit3 < Msf::Auxiliary
 		password = datastore['PASSWORD']	
 		realm = datastore['REALM']
 		if datastore['FROM'] =~ /FUZZ/
-			from="A"*datastore['FROM'].split(" ")[1].to_i
+			from=Rex::Text.pattern_create(datastore['FROM'].split(" ")[1].to_i)
 			fromname=qunil
 		else
 			from = datastore['FROM'] 
@@ -89,7 +91,11 @@ class Metasploit3 < Msf::Auxiliary
 		listen_port = datastore['CPORT'].to_i 
 		dest_addr =datastore['RHOST']  
 		dest_port = datastore['RPORT'].to_i 
-
+		if datastore['MESSAGE_CONTENT'] =~ /FUZZ/
+			message = Rex::Text.pattern_create(datastore['MESSAGE_CONTENT'].split(" ")[1].to_i)
+		else	
+			message = datastore['MESSAGE_CONTENT']
+		end
 		#Building Custom Headers
 		customheader = ""
 		customheader << datastore['CUSTOMHEADER']+"\r\n" if datastore['CUSTOMHEADER'] != nil
@@ -118,38 +124,41 @@ class Metasploit3 < Msf::Auxiliary
 			fromname=nil
 		end 
 
-		result,rdata,rdebug,rawdata,callopts = send_invite(
-			'login' 	=> login,	
-			'loginmethod'  	=> datastore['LOGINMETHOD'],
-			'user'  	=> user,
-			'password'	=> password,
-			'realm' 	=> realm,
-			'from'  	=> from,
-			'fromname'  	=> fromname,
-			'to'  		=> to,
-			'customheader'	=> customheader,
-		)  
+		datastore['DOS_COUNT'].times do
+			result,rdata,rdebug,rawdata,callopts = send_message(
+				'login' 	=> login,	
+				'loginmethod'  	=> datastore['LOGINMETHOD'],
+				'user'  	=> user,
+				'password'	=> password,
+				'realm' 	=> realm,
+				'from'  	=> from,
+				'fromname'  	=> fromname,
+				'to'  		=> to,
+				'customheader'	=> customheader,
+				'message'	=> message,
+			)  
 
 
-		if rdata != nil and rdata['resp'] =~ /^18|^20|^48/ and rawdata.to_s =~ /#{callopts["tag"]}/
-			to=rdata['to'].gsub("@#{realm}","") if rdata["to"]	
-			print_good("Call: #{from} ==> #{to} is Ringing, Server Response: #{rdata['resp_msg'].split(" ")[1,5].join(" ")}")
-		else
-			vprint_status("Call: #{from} ==> #{to} is Failed")
-			vprint_status("Server Response: #{rdata['resp_msg'].split(" ")[1,5].join(" ")}") if rdata != nil
-		end
+			if rdata != nil and rdata['resp'] =~ /^18|^20|^48/ and rawdata.to_s =~ /#{callopts["tag"]}/
+				to=rdata['to'].gsub("@#{realm}","") if rdata["to"]	
+				print_good("Message: #{from} ==> #{to} Message Sent, Server Response: #{rdata['resp_msg'].split(" ")[1,5].join(" ")}")
+			else
+				vprint_status("Message: #{from} ==> #{to} Message Failed")
+				vprint_status("Server Response: #{rdata['resp_msg'].split(" ")[1,5].join(" ")}") if rdata != nil
+			end
 
-		if customheader
-			vprint_status("Custom Headers")
-			vprint_status(customheader)
-		end
-                      
-		#Debug
-		if datastore['DEBUG']
-			print_debug("---------------------------------Details--------------------------------")	
-			rawdata.split("\n").each { |r| print_debug("#{r}") } if rdata != nil
-			print_debug("-------------------------Irrelevant Responses---------------------------")	
-			rdebug.each { |r| print_debug("#{r['resp']} #{r['resp_msg']}") } if rdebug
+			if customheader
+				vprint_status("Custom Headers")
+				vprint_status(customheader)
+			end
+		              
+			#Debug
+			if datastore['DEBUG']
+				print_debug("---------------------------------Details--------------------------------")	
+				rawdata.split("\n").each { |r| print_debug("#{r}") } if rdata != nil
+				print_debug("-------------------------Irrelevant Responses---------------------------")	
+				rdebug.each { |r| print_debug("#{r['resp']} #{r['resp_msg']}") } if rdebug
+			end
 		end
 		stop
         end

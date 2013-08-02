@@ -25,7 +25,7 @@ module Auxiliary::SIP
 		self.context = context
 		self.sock = nil	
 
-		print_status("Starting SIP Socket on #{listen_addr}:#{listen_port}") if datastore['VERBOSE']
+		vprint_status("Starting SIP Socket on #{listen_addr}:#{listen_port}")
 		@sip = Rex::Proto::SIP::Socket.new(listen_port,listen_addr,dest_port,dest_addr,context)
 	end
 
@@ -95,7 +95,7 @@ module Auxiliary::SIP
 	end
 
 	def stop
-		print_status("Stopping SIP Sockets...") 
+		vprint_status("Stopping SIP Sockets...") 
 		@sip.sock.close if not @sip.nil?
 		@sipprx1.sock.close if not @sipprx1.nil?
 		@sipprx2.sock.close if not @sipprx2.nil?
@@ -240,6 +240,13 @@ module Auxiliary::SIP
 	#    
 	def send_ack(req_options={})
 		@sip.send_ack(req_options)
+	end		
+
+	#
+	# Sending Message
+	#    
+	def send_message(req_options={})
+		@sip.send_message(req_options)
 	end		
 
   	#

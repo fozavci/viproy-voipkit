@@ -68,6 +68,7 @@ class Metasploit3 < Msf::Auxiliary
 			report = "#{rdata['source']}\tResponse: #{rdata['resp_msg'].split(" ")[1,5].join(" ")}\n"
 			report <<"Server \t: #{rdata['server']}\n" if rdata['server']
 			report << "User-Agent \t: #{rdata['agent']}\n"	if rdata['agent']
+			report << "Realm \t: #{rdata['digest']['realm']}\n" if rdata['digest']
 			print_good(report)
 
 			report_auth_info(
@@ -94,7 +95,8 @@ class Metasploit3 < Msf::Auxiliary
 
 			rawdata.split("\n").each { |r| print_debug("Response Details: #{r}") } if rdata != nil
 			rdebug.each { |r| print_debug("Irrelevant Responses :  #{r['resp']} #{r['resp_msg']}") } if rdebug
-		end	
+		end
+		stop	
     end
 end
 

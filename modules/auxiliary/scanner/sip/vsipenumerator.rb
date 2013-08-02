@@ -52,37 +52,39 @@ class Metasploit3 < Msf::Auxiliary
 	end
 	def run
 		udp_sock = nil
-	if datastore['METHOD'] =~ /[SUBSCRIBE|REGISTER|INVITE]/
-		method = datastore['METHOD']
-	else
-		print_error("Brute Force METHOD must be defined")
-	end
+		if datastore['METHOD'] =~ /[SUBSCRIBE|REGISTER|INVITE]/
+			method = datastore['METHOD']
+		else
+			print_error("Brute Force METHOD must be defined")
+		end
 
-        realm = datastore['REALM']
-        from = datastore['FROM']
-        to = datastore['TO']		
-        listen_addr = datastore['CHOST']
-        listen_port = datastore['CPORT'].to_i 
-        dest_addr =datastore['RHOST']  
-        dest_port = datastore['RPORT'].to_i 
+		realm = datastore['REALM']
+		from = datastore['FROM']
+		to = datastore['TO']		
+		listen_addr = datastore['CHOST']
+		listen_port = datastore['CPORT'].to_i 
+		dest_addr =datastore['RHOST']  
+		dest_port = datastore['RPORT'].to_i 
 		
-        start_sipsrv(listen_port,listen_addr,dest_port,dest_addr)
+		start_sipsrv(listen_port,listen_addr,dest_port,dest_addr)
+		reported_users=[]
 
-        if datastore['NUMERIC_USERS'] == true
-		exts=(datastore['NUMERIC_MIN']..datastore['NUMERIC_MAX']).to_a
-		exts.each { |ext|
-			ext=ext.to_s
-			from=to=ext if datastore['USER_AS_FROM_and_TO']
-			do_login(ext,realm,from,to,dest_addr,method)
-		}      
-        else
-		each_user_pass { |user, password|
-			from=to=user if datastore['USER_AS_FROM_and_TO']
-			do_login(user,realm,from,to,dest_addr,method)
-		}
-        end
+		if datastore['NUMERIC_USERS'] == true
+			exts=(datastore['NUMERIC_MIN']..datastore['NUMERIC_MAX']).to_a
+			exts.each { |ext|
+				ext=ext.to_s
+				from=to=ext if datastore['USER_AS_FROM_and_TO']
+				reported_users = do_login(ext,realm,from,to,dest_addr,method,reported_users)
+			}      
+		else
+			each_user_pass { |user, password|
+				from=to=user if datastore['USER_AS_FROM_and_TO']
+				reported_users = do_login(user,realm,from,to,dest_addr,method,reported_users)
+			}
+		end
+		stop
 	end
-	def do_login(user,realm,from,to,dest_addr,method)
+	def do_login(user,realm,from,to,dest_addr,method,reported_users)
 		vprint_status("Trying username:'#{user}'")
 
 		cred={
@@ -100,30 +102,32 @@ class Metasploit3 < Msf::Auxiliary
 			possible = /^200/
 		when "SUBSCRIBE"
 			result,rdata,rdebug,rawdata = send_subscribe(cred)
-			possible = /^40[0-3]/
-		#when "OPTIONS"
-			#result,rdata,rdebug,rawdata = send_options(cred)
-			#possible = /^40[0-3]/
+			possible = /^40[0-3]|^40[5-9]|^200/
+		when "OPTIONS"
+			result,rdata,rdebug,rawdata = send_options(cred)
+			possible = /^40[0-3]|^40[5-9]/
 		when "INVITE"
 			result,rdata,rdebug,rawdata = send_invite(cred)
-			possible = /^40[0-3]/ #/^200/
+			possible = /^40[0-3]|^40[5-9]|^200/ 
 		end
 
 		if rdata != nil and rdata['resp'] =~ possible
 			user=rdata['from'].gsub("@#{realm}","").gsub("\"","") if rdata["from"]
 
-			print_good("User #{user} is Found, Server Response: #{rdata['resp_msg'].split(" ")[1,5].join(" ")}")
-
-			#Saving User to DB
-			report_auth_info(
-				:host	=> dest_addr,
-				:port	=> datastore['RPORT'],
-				:sname	=> 'sip',
-				:user	=> user,
-				:proof  => nil,
-				:source_type => "user_supplied",
-				:active => true
-			)
+			if ! reported_users.include?(user)
+				print_good("User #{user} is Found, Server Response: #{rdata['resp_msg'].split(" ")[1,5].join(" ")}") 
+				#Saving User to DB
+				report_auth_info(
+					:host	=> dest_addr,
+					:port	=> datastore['RPORT'],
+					:sname	=> 'sip',
+					:user	=> user,
+					:proof  => nil,
+					:source_type => "user_supplied",
+					:active => true
+				)
+				reported_users << user	
+			end
 		else	
 			vprint_status("User #{user} is not found") 
 		end
@@ -136,7 +140,7 @@ class Metasploit3 < Msf::Auxiliary
 			print_debug("-------------------------Irrelevant Responses---------------------------")	
 			rdebug.each { |r| print_debug("#{r['resp']} #{r['resp_msg']}") } if rdebug
 		end
-			
-    end
+		return reported_users
+    	end
 end
 

@@ -130,7 +130,7 @@ class Metasploit3 < Msf::Auxiliary
 			rawdata.split("\n").each { |r| print_debug("Response Details: #{r}") } if rawdata != nil
 			rdebug.each { |r| print_debug("Irrelevant Responses :  #{r['resp']} #{r['resp_msg']}") } if rdebug != nil
 		end	
-
+		stop
 	end
 end
 

@@ -84,6 +84,7 @@ class Metasploit3 < Msf::Auxiliary
 		        	do_login(user,password,realm,from,to,dest_addr,method)
 			}
 		end
+		stop
 	end
 	def do_login(user,password,realm,from,to,dest_addr,method)
 		vprint_status("Trying username:'#{user}' with password:'#{password}'")
