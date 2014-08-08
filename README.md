@@ -5,8 +5,8 @@ VoIP penetration testing modules for Metasploit Framework
 http://viproy.com<br>
 
 #Installation
-Copy "lib" and "modules" folders' content to Metasploit Root Directory.<br>
-Mixins.rb File (lib/msf/core/auxiliary/mixins.rb) Should Contain This Line<br>
+Copy "lib" and "modules" folders' content to Metasploit root directory.<br>
+Mixins.rb File (lib/msf/core/auxiliary/mixins.rb) should contains the following lines<br>
 require 'msf/core/auxiliary/sip'<br>
 require 'msf/core/auxiliary/skinny'<br>
 
