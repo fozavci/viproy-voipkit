@@ -4,3 +4,6 @@ echo "require 'msf/core/auxiliary/skinny'" >> /usr/share/metasploit-framework/li
 cp modules/auxiliary/voip/viproy* /usr/share/metasploit-framework/modules/auxiliary/voip/
 cp modules/auxiliary/spoof/cisco/viproy-cdp.rb /usr/share/metasploit-framework/modules/auxiliary/spoof/cisco/
 printf "You can execute msfconsole now.\nViproy modules placed under auxiliary/voip/viproy*\n"
+apt-get install libpcap-dev
+gem install pcaprub
+
