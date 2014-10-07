@@ -1,3 +1,6 @@
+# This service is prepared to provide IP phones services like CUCDM IP Phone services
+# License: Metasploit Framework License (BSD)
+
 require 'socket'
 server = TCPServer.new(8080)
 @serverip = "192.168.0.1"

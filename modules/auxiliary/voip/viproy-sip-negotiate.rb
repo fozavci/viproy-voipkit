@@ -35,6 +35,7 @@ class Metasploit3 < Msf::Auxiliary
     [
       Opt::CHOST,
       Opt::CPORT(5065),
+      OptString.new('USERAGENT',   [ false, "SIP user agent" ]),
       OptString.new('REALM',   [ false, "The login realm to probe at each host", nil]),
       OptString.new('MACADDRESS',   [ false, "MAC Address for Vendor", "000000000000"]),
       OptString.new('VENDOR',   [ true, "Vendor (GENERIC|CISCODEVICE|CISCOGENERIC|MSLYNC)", "GENERIC"]),

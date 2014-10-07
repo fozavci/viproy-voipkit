@@ -61,31 +61,46 @@ module Auxiliary::SIP
             self.listen_port = listen_port
             print_debug("UDP listener initiated on #{listen_port}") if datastore["DEBUG"]  and self.sock
             break
-          rescue
-            #print_debug("UDP #{listen_port} is busy") if datastore["DEBUG"]  and self.sock
+          rescue ::Rex::AddressInUse
             listen_port += 1
           end
         end
       when 'tcp'
-        self.sock = Rex::Socket::Tcp.create(
-            'PeerHost'      => dest_addr,
-            'PeerPort'      => dest_port,
-            'Context'       => context,
-        )
-        #self.listen_port = self.sock.localport
-        self.listen_port = 5060
-        print_debug("TCP socket connected for #{dest_addr}, local port is #{self.listen_port}") if datastore["DEBUG"]  and self.sock
+        listen_port = datastore["CPORT"].to_i || 5060
+        while listen_port
+          begin
+            self.sock = Rex::Socket::Tcp.create(
+                'PeerHost'      => dest_addr,
+                'PeerPort'      => dest_port,
+                'LocalPort'     => listen_port,
+                'Context'       => context,
+            )
+            self.listen_port = listen_port
+            print_debug("TCP socket connected for #{dest_addr}, local port is #{listen_port}") if datastore["DEBUG"]  and self.sock
+            break
+          rescue ::Rex::AddressInUse
+            listen_port += 1
+          end
+        end
       when 'tls'
-        self.sock = Rex::Socket::Tcp.create(
-            'PeerHost'      => dest_addr,
-            'PeerPort'      => dest_port,
-            'SSL'           => true,
-            'SSLVerifyMode' => 'NONE',
-            'Context'       => context,
-        )
-        #self.listen_port = self.sock.localport
-        self.listen_port = 5060
-        print_debug("TLS socket connected for #{dest_addr}, local port is #{self.listen_port}") if datastore["DEBUG"]  and self.sock
+        listen_port = datastore["CPORT"].to_i || 5060
+        while
+          begin
+            self.sock = Rex::Socket::Tcp.create(
+                'PeerHost'      => dest_addr,
+                'PeerPort'      => dest_port,
+                'LocalPort'     => listen_port,
+                'SSL'           => true,
+                'SSLVerifyMode' => 'NONE',
+                'Context'       => context,
+            )
+            self.listen_port = listen_port
+            print_debug("TLS socket connected for #{dest_addr}, local port is #{listen_port}") if datastore["DEBUG"]  and self.sock
+            break
+          rescue ::Rex::AddressInUse
+            listen_port += 1
+          end
+        end
       else
         raise ::Rex::ArgumentError, 'Protocol is invalid. Valid protocols are UDP, TCP or TLS.'
     end
@@ -103,7 +118,6 @@ module Auxiliary::SIP
   def printresults(result,rdata,rdebug,rawdata,method=nil,user=nil,password=nil)
     return if rdata == nil
 
-    #vprint_status("Received from #{self.dest_addr}:#{self.dest_port} : #{rdata['resp_msg'].split(" ")[1,5].join(" ")}")
     report =  "#{rdata['source']}\n\tResponse\t: #{rdata['resp_msg'].split(" ")[1,5].join(" ")}\n"
     report << "\tServer \t\t: #{rdata['server']}\n" if rdata['server']
     report << "\tWarning \t: #{rdata['warning']}\n" if rdata['warning']
@@ -120,13 +134,13 @@ module Auxiliary::SIP
         service='SIP Server'
       end
 
-      #report_service(
-      #    :host	          => self.dest_addr,
-      #    :port	          => self.dest_port,
-      #    :sname	          => 'sip',
-      #    :proto           => proto.downcase,
-      #    :info            => service
-      #)
+      report_service(
+          :host	          => self.dest_addr,
+          :port	          => self.dest_port,
+          :sname	        => 'sip',
+          :proto          => proto.downcase,
+          :info           => service
+      )
 
       #reporting the validated credential
       if  result =~ /succeed/
@@ -135,16 +149,16 @@ module Auxiliary::SIP
           password=nil
         end
 
-        #report_auth_info(
-        #    :host	        => self.dest_addr,
-        #    :port	        => self.dest_port,
-        #    :sname	        => 'sip',
-        #    :user	        => user,
-        #    :pass	        => password,
-        #    :proof         => nil,
-        #    :source_type   => "user_supplied",
-        #    :active        => true
-        #)
+        report_auth_info(
+            :host	        => self.dest_addr,
+            :port	        => self.dest_port,
+            :sname	        => 'sip',
+            :user	        => user,
+            :pass	        => password,
+            :proof         => nil,
+            :source_type   => "user_supplied",
+            :active        => true
+        ) if method =~ /register|invite/
         report << "\tCredentials\t: User => #{user} Password => #{password}\n" if !(result =~ /without/)
       end
       print_good(report)
@@ -328,12 +342,16 @@ module Auxiliary::SIP
       end
     end
 
+    print_debug("No authentication performed.") if datastore['DEBUG']
+
     if method == "MESSAGE" and datastore["DOS_COUNT"]
       datastore["DOS_COUNT"].times {
       result,rdata,rdebug,rawdata,callopts=generic_request(method,req_options)
       }
+      print_debug("Request packet sent.") if datastore['DEBUG']
     else
       result,rdata,rdebug,rawdata,callopts=generic_request(method,req_options)
+      print_debug("Request packet sent.") if datastore['DEBUG']
     end
 
     if rawdata.nil?
@@ -636,14 +654,15 @@ module Auxiliary::SIP
       when 'MESSAGE'
         uri="sip:#{to}@#{realm}"
       when 'OPTIONS'
-        uri="sip:#{to}@#{realm}"
+        #uri="sip:#{to}@#{realm}"
+        uri="sip:#{realm}"
       when 'NEGOTIATE'
         uri="sip:#{dest_addr}:#{dest_port}"
       else
         uri="sip:#{realm}"
     end
 
-    branchstr=";branch=#{branch};rport" if self.vendor != "mslync" #if req_type != "NEGOTIATE"
+    branchstr=";rport;branch=#{branch}" if self.vendor != "mslync" #if req_type != "NEGOTIATE"
 
     data = "#{req_type} #{uri} SIP/2.0\r\n"
     data << "Via: SIP/2.0/#{self.proto.upcase} #{self.listen_addr}:#{self.listen_port}#{branchstr}\r\n"
@@ -667,26 +686,31 @@ module Auxiliary::SIP
       data << "To: <sip:#{to}@#{realm}>\r\n"
     end
 
-    if self.vendor == 'mslync'
+    if self.vendor == 'mslync' or req_type == "OPTIONS"
       data << "Call-ID: #{callid}\r\n"
     else
       data << "Call-ID: #{callid}@#{self.listen_addr}\r\n"
     end
 
-    data << "CSeq: #{seq} #{req_type}\r\n"
+    if req_type == "OPTIONS"
+      data << "CSeq: 1234 #{req_type}\r\n"
+    else
+      data << "CSeq: #{seq} #{req_type}\r\n"
+    end
+
 
     case self.vendor
       when 'ciscodevice'
         contact_ext = "; +sip.instance=\"<urn:uuid:00000000-0000-0000-0000-#{self.macaddress}>\";+u.sip!devicename.ccm.cisco.com=\"SEP#{self.macaddress.upcase}\";+u.sip!model.ccm.cisco.com=\"#{datastore['CISCODEVICE']}\""
-        uagent = "Cisco IP Phone 7945"
+        uagent = datastore["USERAGENT"] || "Cisco IP Phone 7945"
         msq =""
       when 'mslync'
         contact_ext =";methods=\"INVITE, MESSAGE, INFO, OPTIONS, BYE, CANCEL, NOTIFY, ACK, REFER, BENOTIFY\";proxy=replace"
-        uagent = "UCCAPI/15.0.4420.1017 OC/15.0.4420.1017 (Microsoft Lync)"
+        uagent = datastore["USERAGENT"] || "UCCAPI/15.0.4420.1017 OC/15.0.4420.1017 (Microsoft Lync)"
         msq = ";ms-opaque=#{msopaque}"
       else
         contact_ext = ''
-        uagent = "Viproy Penetration Testing Kit - Test Agent"
+        uagent = datastore["USERAGENT"] || "Viproy Penetration Testing Kit - Test Agent"
         msq =""
     end
 
@@ -698,15 +722,15 @@ module Auxiliary::SIP
         if from =~ /@/
           data << "Contact: <sip:#{from}#{msq}> #{contact_ext}\r\n"
         else
-          data << "Contact: <sip:#{from}@#{self.listen_addr}:#{self.listen_port};transport=#{self.proto.upcase}#{msq}>#{contact_ext}\r\n"
+          data << "Contact: <sip:#{from}@#{self.listen_addr}:#{self.listen_port}>#{contact_ext}\r\n"
         end
       end
 
       data << "User-Agent: #{uagent}\r\n"
 
       if self.vendor != 'mslync'
-        data << "Supported: 100rel,replaces\r\n"
-        data << "Allow: INVITE,ACK,OPTIONS,BYE,CANCEL,SUBSCRIBE,NOTIFY,REFER,MESSAGE,INFO,PING,PRACK\r\n"
+        data << "Supported: 100rel,replaces\r\n" if req_type != "OPTIONS"
+        data << "Allow: PRACK, INVITE ,ACK, BYE, CANCEL, UPDATE, SUBSCRIBE,NOTIFY, REFER, MESSAGE, OPTIONS\r\n"
         data << "Expires: 3600\r\n"
       end
     end
@@ -745,6 +769,8 @@ module Auxiliary::SIP
         data << "Event: message-summary\r\n"
         data << "Accept: application/simple-message-summary\r\n"
       end
+    else
+      data << "Accept: application/sdp\r\n"
     end
 
     data << "Compression: LZ77-8K\r\n" if req_type == "NEGOTIATE"

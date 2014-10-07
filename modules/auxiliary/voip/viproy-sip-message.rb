@@ -50,6 +50,7 @@ class Metasploit3 < Msf::Auxiliary
 		[
       Opt::CHOST,
       Opt::CPORT(5065),
+      OptString.new('USERAGENT',   [ false, "SIP user agent" ]),
       OptString.new('REALM',   [ false, "The login realm to probe at each host", nil]),
       OptString.new('LOGINMETHOD', [false, 'Login Method (REGISTER | MESSAGE)', "MESSAGE"]),
 			OptBool.new('TO_as_FROM', [true, 'Try the to field as the from field for all users', false]),

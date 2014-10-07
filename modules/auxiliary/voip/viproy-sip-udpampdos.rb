@@ -12,7 +12,6 @@ class Metasploit3 < Msf::Auxiliary
 
   include Msf::Auxiliary::Report
   include Msf::Auxiliary::Scanner
-  include Msf::Exploit::Capture
 
 	def initialize
 		super(

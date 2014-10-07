@@ -40,6 +40,7 @@ class Metasploit3 < Msf::Auxiliary
 		[
       Opt::CHOST,
       Opt::CPORT(5065),
+      OptString.new('USERAGENT',   [ false, "SIP user agent" ]),
       OptString.new('TO',   [ false, "The destination username to probe at each host", "1000"]),
       OptString.new('FROM',   [ false, "The source username to probe at each host", "1000"]),
       OptString.new('REALM',   [ false, "The login realm to probe at each host", nil]),
@@ -68,6 +69,7 @@ class Metasploit3 < Msf::Auxiliary
 
     sipsocket_start(listen_port,listen_addr,dest_port,dest_addr,proto,vendor,macaddress)
     sipsocket_connect
+    print_debug("Socket is connected.") if datastore['DEBUG']
 
     reported_users=[]
 
@@ -78,7 +80,11 @@ class Metasploit3 < Msf::Auxiliary
 				from=to=ext if datastore['USER_AS_FROM_and_TO']
 				reported_users = do_login(ext,from,to,dest_addr,method,reported_users)
 			}      
-		else
+    else
+      if datastore['USER_FILE'].nil?
+        print_error("User wordlist is not provided.")
+        return
+      end
 			each_user_pass { |user, password|
 				from=to=user if datastore['USER_AS_FROM_and_TO']
 				reported_users = do_login(user,from,to,dest_addr,method,reported_users)
@@ -98,8 +104,9 @@ class Metasploit3 < Msf::Auxiliary
 		    'to'        => to
 		}
 
-		case method
-		when "REGISTER"
+    print_debug("Enumeration method is #{method}.") if datastore['DEBUG']
+    case method
+    when "REGISTER"
 			result,rdata,rdebug,rawdata = send_register(cred)
 			possible = /^200/
 		when "SUBSCRIBE"
@@ -114,7 +121,7 @@ class Metasploit3 < Msf::Auxiliary
 		end
 
 		if rdata != nil and rdata['resp'] =~ possible
-			user=rdata['from'].split("@")[0] #.gsub("@#{realm}","").gsub("\"","") if rdata["from"]
+			user=rdata['from'].split("@")[0]
 
 			if ! reported_users.include?(user)
 				print_good("User #{user} is Valid (Server Response: #{rdata['resp_msg'].split(" ")[1,5].join(" ")})")
@@ -134,7 +141,7 @@ class Metasploit3 < Msf::Auxiliary
 			end
     else
 			vprint_status("User #{user} is Invalid (#{rdata['resp_msg'].split(" ")[1,5].join(" ")})") if rdata !=nil
-      vprint_status("\tWarning \t\t: #{rdata['warning']}\n") if rdata['warning']
+      vprint_status("\tWarning \t\t: #{rdata['warning']}\n") if ! rdata.nil? and rdata['warning']
     end
 
     printresults(result,rdata,rdebug,rawdata) if datastore['DEBUG']

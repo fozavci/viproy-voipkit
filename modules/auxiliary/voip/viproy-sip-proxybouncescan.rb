@@ -38,6 +38,7 @@ class Metasploit3 < Msf::Auxiliary
 		[
       Opt::CHOST,
       Opt::CPORT(5065),
+      OptString.new('USERAGENT',   [ false, "SIP user agent" ]),
       OptString.new('TO',   [ true, "The destination username to probe at each host", "100"]),
       OptString.new('FROM',   [ true, "The source username to probe at each host", "100"]),
 		], self.class)

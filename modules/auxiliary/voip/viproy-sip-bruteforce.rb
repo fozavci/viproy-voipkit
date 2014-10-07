@@ -44,6 +44,7 @@ class Metasploit3 < Msf::Auxiliary
 		[
       Opt::CHOST,
       Opt::CPORT(5065),
+      OptString.new('USERAGENT',   [ false, "SIP user agent" ]),
       OptBool.new('USER_AS_FROM_and_TO', [true, 'Try the username as the from/to for all users', true]),
       OptBool.new('DEREGISTER', [true, 'De-Register After Successful Login', false]),
       OptString.new('REALM',   [ true, "The login realm to probe", "realm.com.tr"]),

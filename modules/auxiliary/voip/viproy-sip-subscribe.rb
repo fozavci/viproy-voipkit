@@ -43,6 +43,7 @@ class Metasploit3 < Msf::Auxiliary
         [
             Opt::CHOST,
             Opt::CPORT(5065),
+            OptString.new('USERAGENT',   [ false, "SIP user agent" ]),
             OptString.new('SUBSCRIBETYPE',   [ false, "Subscribe message type (presence,message)", 'message']),
             OptString.new('REALM',   [ false, "The login realm to probe at each host", nil]),
             OptString.new('LOGINMETHOD', [false, 'Login Method (REGISTER | SUBSCRIBE)', "SUBSCRIBE"]),
