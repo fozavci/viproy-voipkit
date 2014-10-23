@@ -1,8 +1,6 @@
 ##
-# This file is part of the Metasploit Framework and may be subject to
-# redistribution and commercial restrictions. Please see the Metasploit
-# Framework web site for more information on licensing and terms of use.
-# http://metasploit.com/framework/
+# This module requires Metasploit: http//metasploit.com/download
+# Current source: https://github.com/rapid7/metasploit-framework
 ##
 
 require 'msf/core'
@@ -14,31 +12,28 @@ class Metasploit3 < Msf::Auxiliary
 
   def initialize(info = {})
     super(
-        'Name'           => 'Viproy MITM Proxy for TCP/TLS',
-        'Version'        => '1',
-        'Description'    => 'MITM Proxy for TCP/TLS',
-        'License'        => MSF_LICENSE,
-        'Author'         => 'Fatih Ozavci - viproy.com/fozavci',
-        'References'     =>	[],
+      'Name'           => 'Viproy MITM Proxy for TCP/TLS',
+      'Version'        => '1',
+      'Description'    => 'MITM Proxy for TCP/TLS',
+      'License'        => MSF_LICENSE,
+      'Author'         => 'Fatih Ozavci - viproy.com/fozavci',
+      'References'     =>	[],
     )
 
     register_options(
-        [
-            OptString.new('RHOST',   [ true, "Destination IP Address", nil]),
-            OptString.new('RPORT',   [ true, "Destination Port", nil]),
-            OptBool.new('SSL', [ false, 'Negotiate SSL for proxy connections', false]),
-            OptString.new('LOGFILE',   [ true, "Log file for content"]),
+      [
+          OptString.new('RHOST',   [ true, "Destination IP Address", nil]),
+          OptString.new('RPORT',   [ true, "Destination Port", nil]),
+          OptBool.new('SSL', [ false, 'Negotiate SSL for proxy connections', false]),
+          OptString.new('LOGFILE',   [ true, "Log file for content"]),
 
-        ], self.class)
+      ], self.class)
 
     register_advanced_options(
-        [
-            OptPath.new('REPLACEFILE',      [ false, "File containing Replacements, one per line"]),
-            OptBool.new('VERBOSE',   [ false, "Verbose Level", false]),
-            OptBool.new('DEBUG',   [ false, "Debug Level", false]),
-        ], self.class)
-
-
+      [
+          OptPath.new('REPLACEFILE',      [ false, "File containing Replacements, one per line"]),
+          OptBool.new('DEBUG',   [ false, "Debug Level", false]),
+      ], self.class)
   end
 
   def setup
@@ -58,7 +53,7 @@ class Metasploit3 < Msf::Auxiliary
   def on_client_connect(c)
     begin
       #Banner
-      #igreetings(c)
+      #greetings(c)
 
       @state[c] = {
           :name    => "#{c.peerhost}:#{c.peerport}",
@@ -185,5 +180,3 @@ class Metasploit3 < Msf::Auxiliary
     print_status("Logged to #{@logfname}")
   end
 end
-
-

@@ -1,8 +1,6 @@
 ##
-# This file is part of the Metasploit Framework and may be subject to
-# redistribution and commercial restrictions. Please see the Metasploit
-# Framework web site for more information on licensing and terms of use.
-# http://metasploit.com/framework/
+# This module requires Metasploit: http//metasploit.com/download
+# Current source: https://github.com/rapid7/metasploit-framework
 ##
 
 
@@ -44,23 +42,28 @@ class Metasploit3 < Msf::Auxiliary
   end
 
   def run_host(dest_addr)
-    listen_addr = datastore['CHOST']
-    listen_port = datastore['CPORT']
-    dest_port = datastore['RPORT']
-    proto = datastore['PROTO'].downcase
-    vendor = datastore['VENDOR'].downcase
-    macaddress = datastore['MACADDRESS'] || "000000000000"
+    sockinfo={}
+    # Protocol parameters
+    sockinfo["proto"] = datastore['PROTO'].downcase
+    sockinfo["vendor"] = datastore['VENDOR'].downcase
+    sockinfo["macaddress"] = datastore['MACADDRESS']
 
-    sipsocket_start(listen_port,listen_addr,dest_port,dest_addr,proto,vendor,macaddress)
+    # Socket parameters
+    sockinfo["listen_addr"] = datastore['CHOST']
+    sockinfo["listen_port"] = datastore['CPORT']
+    sockinfo["dest_addr"] =datastore['RHOST']
+    sockinfo["dest_port"] = datastore['RPORT']
+
+    sipsocket_start(sockinfo)
     sipsocket_connect
 
-    result,rdata,rdebug,rawdata = send_negotiate(
+    results = send_negotiate(
       'realm'		  => datastore['REALM'],
       'from'    	=> datastore['FROM'],
       'to'    	  => datastore['TO']
     )
 
-    printresults(result,rdata,rdebug,rawdata)
+    printresults(results)
     sipsocket_stop
   end
 end

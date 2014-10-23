@@ -1,8 +1,6 @@
 ##
-# This file is part of the Metasploit Framework and may be subject to
-# redistribution and commercial restrictions. Please see the Metasploit
-# Framework web site for more information on licensing and terms of use.
-# http://metasploit.com/framework/
+# This module requires Metasploit: http//metasploit.com/download
+# Current source: https://github.com/rapid7/metasploit-framework
 ##
 
 
@@ -66,10 +64,17 @@ class Metasploit3 < Msf::Auxiliary
     password = datastore['PASSWORD']
     realm = datastore['REALM']
 
+    sockinfo={}
     # Protocol parameters
-    proto = datastore['PROTO'].downcase
-    vendor = datastore['VENDOR'].downcase
-    macaddress = datastore['MACADDRESS']
+    sockinfo["proto"] = datastore['PROTO'].downcase
+    sockinfo["vendor"] = datastore['VENDOR'].downcase
+    sockinfo["macaddress"] = datastore['MACADDRESS']
+
+    # Socket parameters
+    sockinfo["listen_addr"] = datastore['CHOST']
+    sockinfo["listen_port"] = datastore['CPORT']
+    sockinfo["dest_addr"] =datastore['RHOST']
+    sockinfo["dest_port"] = datastore['RPORT']
 
     # Dumb fuzzing for FROM, FROMNAME and TO fields
     if datastore['FROM'] =~ /FUZZ/
@@ -89,12 +94,6 @@ class Metasploit3 < Msf::Auxiliary
       to = datastore['TO']
     end
 
-    # Socket parameters
-    listen_addr = datastore['CHOST']
-    listen_port = datastore['CPORT']
-    dest_addr =datastore['RHOST']
-    dest_port = datastore['RPORT']
-
 
     #Building Custom Headers
     customheader = ""
@@ -104,7 +103,7 @@ class Metasploit3 < Msf::Auxiliary
     customheader << "Record-Route: "+datastore['Record-Route']+"\r\n" if datastore['Record-Route'] != nil
     customheader << "Route: "+datastore['Route']+"\r\n" if datastore['Route'] != nil
 
-    sipsocket_start(listen_port,listen_addr,dest_port,dest_addr,proto,vendor,macaddress)
+    sipsocket_start(sockinfo)
     sipsocket_connect
 
     to.to_s
@@ -113,7 +112,7 @@ class Metasploit3 < Msf::Auxiliary
       fromname=nil
     end
 
-    result,rdata,rdebug,rawdata,callopts = send_subscribe(
+    results = send_subscribe(
         'login' 	      => login,
         'loginmethod'  	=> datastore['LOGINMETHOD'],
         'subscribetype'	=> datastore['SUBSCRIBETYPE'],
@@ -126,9 +125,11 @@ class Metasploit3 < Msf::Auxiliary
         'customheader'	=> customheader,
     )
 
-    printresults(result,rdata,rdebug,rawdata) if datastore['DEBUG'] == true
+    printresults(results) if datastore['DEBUG'] == true
 
-    if rdata != nil and rdata['resp'] =~ /^18|^20|^48/ and rawdata.to_s =~ /#{callopts["tag"]}/
+    rdata = results["rdata"]
+
+    if rdata != nil and rdata['resp'] =~ /^18|^20|^48/ and resutls["rawdata"].to_s =~ /#{results["callopts"]["tag"]}/
       print_good("Message: #{from} ==> #{to} Subscribe Sent (Server Response: #{rdata['resp_msg'].split(" ")[1,5].join(" ")})")
     else
       vprint_status("Message: #{from} ==> #{to} Subscription Failed (Server Response: #{rdata['resp_msg'].split(" ")[1,5].join(" ")})") if rdata != nil

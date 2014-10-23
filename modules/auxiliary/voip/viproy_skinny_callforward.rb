@@ -1,8 +1,6 @@
 ##
-# This file is part of the Metasploit Framework and may be subject to
-# redistribution and commercial restrictions. Please see the Metasploit
-# Framework web site for more information on licensing and terms of use.
-# http://metasploit.com/framework/
+# This module requires Metasploit: http//metasploit.com/download
+# Current source: https://github.com/rapid7/metasploit-framework
 ##
 
 require 'msf/core'
@@ -18,29 +16,29 @@ class Metasploit3 < Msf::Auxiliary
 
   def initialize
     super(
-        'Name'				=> 'Viproy Cisco Call Forwarding Analyser',
-        'Description' => 'This module helps to test call forwarding features for Skinny',
-        'Author'      => 'Fatih Ozavci <viproy.com/fozavci>',
-        'License'     =>  MSF_LICENSE,
+      'Name'				=> 'Viproy Cisco Call Forwarding Analyser',
+      'Description' => 'This module helps to test call forwarding features for Skinny',
+      'Author'      => 'Fatih Ozavci <viproy.com/fozavci>',
+      'License'     =>  MSF_LICENSE,
     )
     register_options(
-        [
-            OptString.new('MAC',   [ true, "MAC Address"]),
-            OptString.new('FORWARDTO',   [ false, "Call forwarding to (e.g. 986100)"]),
-            OptString.new('ACTION',   [ true, "Action (FORWARD, INFO)", "INFO"]),
-            Opt::RPORT(2000),
-        ], self.class)
+      [
+          OptString.new('MAC',   [ true, "MAC Address"]),
+          OptString.new('FORWARDTO',   [ false, "Call forwarding to (e.g. 986100)"]),
+          OptString.new('ACTION',   [ true, "Action (FORWARD, INFO)", "INFO"]),
+          Opt::RPORT(2000),
+      ], self.class)
     register_advanced_options(
-        [
-            OptString.new('LINE',   [ false, "Source line (e.g. 1,2)", "1"]),
-            OptString.new('PROTO_TYPE',   [ true, "Device Type (e.g. SIP,SEP)", "SEP"]),
-            OptString.new('DEVICE_IP',   [ false, "IP address of the device"]),
-            OptString.new('CISCOCLIENT',   [ true, "Cisco software type (ipphone,cipc)","cipc"]),
-            OptString.new('CAPABILITIES',   [ false, "Capabilities of the device (e.g. Router, Host, Switch)", "Host"]),
-            OptString.new('PLATFORM',   [ false, "Platform of the device", "Cisco IP Phone 7975"]),
-            OptString.new('SOFTWARE',   [ false, "Software of the device", "SCCP75.9-3-1SR2-1S"]),
-            OptString.new('DEBUG',   [ false, "Debug level" ]),
-        ], self.class)
+      [
+          OptString.new('LINE',   [ false, "Source line (e.g. 1,2)", "1"]),
+          OptString.new('PROTO_TYPE',   [ true, "Device Type (e.g. SIP,SEP)", "SEP"]),
+          OptString.new('DEVICE_IP',   [ false, "IP address of the device"]),
+          OptString.new('CISCOCLIENT',   [ true, "Cisco software type (ipphone,cipc)","cipc"]),
+          OptString.new('CAPABILITIES',   [ false, "Capabilities of the device (e.g. Router, Host, Switch)", "Host"]),
+          OptString.new('PLATFORM',   [ false, "Platform of the device", "Cisco IP Phone 7975"]),
+          OptString.new('SOFTWARE',   [ false, "Software of the device", "SCCP75.9-3-1SR2-1S"]),
+          OptString.new('DEBUG',   [ false, "Debug level" ]),
+      ], self.class)
   end
 
   def run
@@ -134,7 +132,7 @@ class Metasploit3 < Msf::Auxiliary
                   @callidentifier=m.split("\t")[0].split(": ")[1]
                   vprint_status("Call identifier is #{@callidentifier}")
                 when "error"
-                  puts "Call forwarding failed."
+                  print_error("Call forwarding failed.")
                   return nil
               end
             }
@@ -169,9 +167,8 @@ class Metasploit3 < Msf::Auxiliary
                   #End Call Request
                   sock.put(prep_softkeyevent("endcall",1,@callidentifier))
                   print_good("The call forwarding is completed. Use INFO to confirm the forwarding.")
-
                 when "error"
-                  puts "Call forwarding failed."
+                  print_error("Call forwarding failed.")
                   return nil
               end
             }
