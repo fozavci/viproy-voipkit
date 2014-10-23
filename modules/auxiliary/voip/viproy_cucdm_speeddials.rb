@@ -12,10 +12,10 @@ class Metasploit3 < Msf::Auxiliary
 
   def initialize(info = {})
     super(
-      'Name'        => 'Viproy VOSS IP Phone XML Services - Speed Dial Attack Tool',
+      'Name'        => 'Viproy CUCDM IP Phone XML Services - Speed Dial Attack Tool',
       'Version'     => '1',
       'Description' => %q{
-        VOSS IP Phone XML Services - Speed Dial Attack Tool
+        CUCDM IP Phone XML Services - Speed Dial Attack Tool
         This tool can be tested with the voss-xmlservice component of Viproy.
         https://github.com/fozavci/viproy-voipkit/raw/master/external/voss-xmlservice.rb
       },
