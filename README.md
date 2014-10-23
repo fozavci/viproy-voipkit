@@ -10,6 +10,9 @@ Mixins.rb File (lib/msf/core/auxiliary/mixins.rb) should contains the following 
 require 'msf/core/auxiliary/sip'<br>
 require 'msf/core/auxiliary/skinny'<br>
 
+#Usage of SIP Modules
+https://github.com/fozavci/viproy-voipkit/blob/master/SIPUSAGE.md
+
 #Black Hat USA 2014 - Network: VoIP Wars Attack of the Cisco Phones
 https://www.youtube.com/watch?v=hqL25srtoEY
 
