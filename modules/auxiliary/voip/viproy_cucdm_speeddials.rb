@@ -20,6 +20,11 @@ class Metasploit3 < Msf::Auxiliary
         https://github.com/fozavci/viproy-voipkit/raw/master/external/voss-xmlservice.rb
       },
       'Author'      => 'Fatih Ozavci <viproy.com/fozavci>',
+      'References'     =>
+          [
+              ['CVE', 'CVE-2014-3300'],
+              ['BID', '68331'],
+          ],
       'License'     => MSF_LICENSE
     )
 
