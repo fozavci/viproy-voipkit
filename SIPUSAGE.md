@@ -11,7 +11,7 @@ set PROTO TCP<br>
 set LOGIN true<br>
 set DEBUG true<br>
 set VERBOSE true <br>
-run<br><br>
+run<br>
 
 http://www.viproy.com/captures/sip_register.pcapng<br>
 
@@ -22,7 +22,7 @@ set RHOSTS 192.168.1.221-222<br>
 set PROTO UDP<br>
 set DEBUG true<br>
 set VERBOSE true<br>
-run<br><br>
+run<br>
 
 http://www.viproy.com/captures/sip_options.pcapng<br>
 
@@ -33,7 +33,7 @@ set RHOSTS 192.168.1.221-222<br>
 set PROTO UDP<br>
 set DEBUG true<br>
 set VERBOSE true<br>
-run<br><br>
+run<br>
 
 http://www.viproy.com/captures/sip_negotiate.pcapng<br>
 
@@ -44,7 +44,7 @@ set RHOST 192.168.1.221<br>
 set PROTO UDP<br>
 set DEBUG true<br>
 set VERBOSE true<br>
-run<br><br>
+run<br>
 
 http://www.viproy.com/captures/sip_subscribe.pcapng<br>
 
@@ -56,7 +56,7 @@ set NUMERIC_USERS true<br>
 set NUMERIC_MIN 100<br>
 set NUMERIC_MAX 210<br>
 set VERBOSE false<br>
-run<br><br>
+run<br>
 
 http://www.viproy.com/captures/sip_enumerate.pcapng<br>
 
@@ -71,7 +71,7 @@ set NUMERIC_MAX 102<br>
 set PASSWORD letmein123<br>
 set VERBOSE true<br>
 set DEBUG true<br>
-run<br><br>
+run<br>
 
 http://www.viproy.com/captures/sip_bruteforce.pcapng<br>
 
@@ -88,7 +88,7 @@ set VERBOSE true<br>
 set LOGIN true<br>
 set PASSWORD test12345<br>
 set USERNAME 203<br>
-run<br><br>
+run<br>
 
 http://www.viproy.com/captures/sip_invite.pcapng<br>
 
@@ -103,7 +103,7 @@ set USERNAME 203<br>
 set LOGIN true<br>
 set MESSAGE_CONTENT test<br>
 set PASSWORD test12345<br>
-run<br><br>
+run<br>
 
 http://www.viproy.com/captures/sip_message.pcapng<br>
 
@@ -116,7 +116,7 @@ set RHOSTS 192.168.1.220-225<br>
 set RPORTS 5060-5070<br>
 set SIP_SERVER_IP 192.168.1.222<br>
 set SIP_SERVER_PORT 5060<br>
-run<br><br>
+run<br>
 
 http://www.viproy.com/captures/sip_proxybouncescan.pcapng<br>
 
@@ -128,7 +128,7 @@ set VICTIM_IP 192.168.1.222<br>
 set VICTIM_PORT 5098<br>
 set INTERFACE en5<br>
 show options <br>
-run<br><br>
+run<br>
 
 http://www.viproy.com/captures/sip_udpampdos.pcapng<br>
 
@@ -139,7 +139,7 @@ set SRC_RHOSTS 192.168.1.220-225<br>
 set SIP_SERVER 192.168.1.222<br>
 set THREADS 5<br>
 set INTERFACE eth0<br>
-run<br><br>
+run<br>
 
 http://www.viproy.com/captures/sip_trusthacking.pcapng<br>
 
