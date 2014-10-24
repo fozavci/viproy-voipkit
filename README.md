@@ -13,6 +13,27 @@ https://www.youtube.com/watch?v=d6cGlTB6qKw
 ##Attacking SIP/VoIP Servers Using Viproy
 https://www.youtube.com/watch?v=AbXh_L0-Y5A
 
+##Current Testing Modules
+* SIP Register
+* SIP Invite
+* SIP Message
+* SIP Negotiate
+* SIP Options
+* SIP Subscribe
+* SIP Enumerate
+* SIP Brute Force
+* SIP Trust Hacking
+* SIP UDP Amplification DoS
+* SIP Proxy Bounce
+* Skinny Register
+* Skinny Call
+* Skinny Call Forward
+* CUCDM Call Forwarder
+* CUCDM Speed Dial Manipulator
+* MITM Proxy TCP
+* MITM Proxy UDP
+* Cisco CDP Spoofer
+
 #Documentation
 
 ##Installation
