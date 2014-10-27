@@ -45,5 +45,8 @@ require 'msf/core/auxiliary/skinny'<br>
 ##Usage of SIP Modules
 https://github.com/fozavci/viproy-voipkit/blob/master/SIPUSAGE.md
 
+##Usage of Skinny Modules
+https://github.com/fozavci/viproy-voipkit/blob/master/SKINNYUSAGE.md
+
 ##Usage of Auxiliary Viproy Modules
 https://github.com/fozavci/viproy-voipkit/blob/master/OTHERSUSAGE.md
