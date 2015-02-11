@@ -12,7 +12,7 @@ module Msf
 module Auxiliary::SIP
   attr_accessor :listen_addr, :listen_port, :context, :logfile, :customheaders
   attr_accessor :sock, :thread, :dest_addr, :dest_port, :proto, :vendor, :macaddress
-  attr_accessor :prxclient_port, :prxclient_ip, :client_port, :client_ip
+  attr_accessor :prxclient_port, :prxclient_ip, :client_port, :client_ip, :expire
   attr_accessor :prxserver_port, :prxserver_ip, :server_port, :server_ip
 
   include Msf::Auxiliary::Report
@@ -27,6 +27,7 @@ module Auxiliary::SIP
     self.dest_addr = sockinfo["dest_addr"]
     self.dest_port = sockinfo["dest_port"].to_i || 5060
     self.proto = sockinfo["proto"].downcase
+    self.expire = 3600
     if vendor
       self.vendor = sockinfo["vendor"].downcase
     else
@@ -114,7 +115,7 @@ module Auxiliary::SIP
   #
   def printresults(results,context={})
 
-    return if results["rdata"] == nil
+    return if results.nil? or results["rdata"].nil?
     status = results["status"]
     rdata = results["rdata"]
     rdebug = results["rdebug"]
@@ -128,6 +129,7 @@ module Auxiliary::SIP
     report << "\tWarning \t: #{rdata['warning']}\n" if rdata['warning']
     report << "\tUser-Agent \t: #{rdata['agent']}\n"	if rdata['agent']
     report << "\tRealm \t\t: #{rdata['digest']['realm']}\n" if rdata['digest']
+    report << "\tContact\t\t: #{rdata['contact']}\n" if rdata['resp_msg'].split(" ")[1] == "301"
 
     printdebug(results) if datastore["DEBUG"] == true
 
@@ -217,6 +219,8 @@ module Auxiliary::SIP
         return "User is Busy"
       when :succeed
         return "Request Succeed"
+      when :moved
+        return "Moved Permanently"
       when :not_found
         return "Not Found"
       when :failed
@@ -243,6 +247,7 @@ module Auxiliary::SIP
   #
   def send_register(req_options={})
     login = req_options["login"] || false
+    self.expire = req_options["expire"] || 3600
     results=generic_request("REGISTER",req_options)
     if results["status"] == :received and results["rdata"] != nil
       case results["rdata"]["resp"]
@@ -264,6 +269,8 @@ module Auxiliary::SIP
           end
         when /^60/
           results["status"]=:decline_error
+        when /^301/
+          results["status"]=:moved
         else
           results["status"]=:protocol_error
       end
@@ -443,6 +450,8 @@ module Auxiliary::SIP
         result=:ringing
       when "100"
         result=:trying
+      when "301"
+        result=:moved
       when /^404/
         result=:not_found
       when /^40/
@@ -525,9 +534,13 @@ module Auxiliary::SIP
         results["status"] = :succeed
       when "/^48/"
         results["status"] = :succeed
+      when "/^183/"
+        results["status"] = :trying
       when "/^18/"
         results["status"] = :succeed
       when /^40/
+        results["status"] = :failed
+      when /^301/
         results["status"] = :failed
       else
         results["status"] = :authorization_error
@@ -564,7 +577,7 @@ module Auxiliary::SIP
   # Response Check
   #
   def resp_get(method,rdebug=[])
-    possible= /^18|^20|^40|^48|^60|^50/
+    possible= /^18|^20|^30|^40|^48|^60|^50/
     rdata,rawdata=recv_data
     rdebug << rdata
 
@@ -775,7 +788,7 @@ module Auxiliary::SIP
       if self.vendor != 'mslync'
         data << "Supported: 100rel,replaces\r\n" if req_type != "OPTIONS"
         data << "Allow: PRACK, INVITE ,ACK, BYE, CANCEL, UPDATE, SUBSCRIBE,NOTIFY, REFER, MESSAGE, OPTIONS\r\n"
-        data << "Expires: 3600\r\n"
+        data << "Expires: #{self.expire}\r\n"
       end
     end
 
@@ -935,6 +948,39 @@ module Auxiliary::SIP
   end
 
 
+  # Parse the authentication
+  def parse_auth(data)
+    result={}
+    str=""
+    var = nil
+    quote = 0
+    data.each_char { |c|
+      quote += 1 if c == '"'
+      if c == "="
+        var = str
+        val = nil
+        str = ""
+      else
+        case quote
+          when 0
+            if c != ","
+              str << c
+            else
+              result[var]=str
+              var = nil
+              str = ""
+            end
+          when 1
+            str << c if c != '"'
+          when 2
+            quote = 0
+        end
+      end
+    }
+    return result
+  end
+
+
   #
   # Parse Response
   #
@@ -982,8 +1028,7 @@ module Auxiliary::SIP
       t=header.split(" ")[0]
       type=t.downcase
       data="#{header.strip.gsub("#{t} ","")}"
-      rdata[type] = {}
-      data.split(",").each { |d| rdata[type][d.split("=")[0].gsub(" ","")]=d.split("=")[1].gsub("\"",'')}
+      rdata[type] = parse_auth(data)
       rdata[type]["authtype"]="www"
     end
     if(rawdata =~ /^Proxy-Authenticate:\s*(.*)$/i)
@@ -991,8 +1036,7 @@ module Auxiliary::SIP
       t=header.split(" ")[0]
       type=t.downcase
       data="#{header.strip.gsub("#{t} ","")}"
-      rdata[type] = {}
-      data.split(",").each { |d| rdata[type][d.split("=")[0].gsub(" ","")]=d.split("=")[1].gsub("\"",'')}
+      rdata[type] = parse_auth(data)
       rdata[type]["authtype"]="proxy"
     end
     if(rawdata =~ /^From:\s+(.*)$/)

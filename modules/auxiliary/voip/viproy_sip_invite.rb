@@ -51,7 +51,7 @@ class Metasploit3 < Msf::Auxiliary
         OptString.new('USERAGENT',   [ false, "SIP user agent" ]),
         OptBool.new('DEBUG',   [ false, "Debug Level", false]),
         OptString.new('REALM',   [ false, "The login realm to probe at each host", nil]),
-        OptString.new('LOGINMETHOD', [false, 'Login Method (REGISTER | MESSAGE)', "MESSAGE"]),
+        OptString.new('LOGINMETHOD', [false, 'Login Method (REGISTER | INVITE)', "INVITE"]),
         OptBool.new('TOEQFROM', [true, 'Try the to field as the from field for all users', false]),
         OptString.new('CUSTOMHEADER', [false, 'Custom Headers for Requests', nil]),
         OptString.new('P-Asserted-Identity', [false, 'Proxy Identity Field. Sample: (IVR, 200@192.168.0.1)', nil]),
@@ -133,7 +133,7 @@ class Metasploit3 < Msf::Auxiliary
       datastore['DOS_COUNT'].times do
         results = send_invite(
             'login' 	      => login,
-            'loginmethod'  	=> datastore['LOGINMETHOD'],
+            'loginmethod'  	=> datastore['LOGINMETHOD'].upcase,
             'user'  	      => user,
             'password'	    => password,
             'realm' 	      => realm,
