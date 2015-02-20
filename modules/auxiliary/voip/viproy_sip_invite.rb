@@ -47,12 +47,12 @@ class Metasploit3 < Msf::Auxiliary
     register_advanced_options(
       [
         Opt::CHOST,
-        Opt::CPORT(5065),
+        Opt::CPORT(5060),
         OptString.new('USERAGENT',   [ false, "SIP user agent" ]),
         OptBool.new('DEBUG',   [ false, "Debug Level", false]),
         OptString.new('REALM',   [ false, "The login realm to probe at each host", nil]),
         OptString.new('LOGINMETHOD', [false, 'Login Method (REGISTER | INVITE)', "INVITE"]),
-        OptBool.new('TOEQFROM', [true, 'Try the to field as the from field for all users', false]),
+        OptBool.new('TOEQFROM', [true, 'FROM will be cloned from TO for all users', false]),
         OptString.new('CUSTOMHEADER', [false, 'Custom Headers for Requests', nil]),
         OptString.new('P-Asserted-Identity', [false, 'Proxy Identity Field. Sample: (IVR, 200@192.168.0.1)', nil]),
         OptString.new('Remote-Party-ID', [false, 'Remote Party Identity Field. (IVR, 200@192.168.0.1)', nil]),
@@ -142,12 +142,14 @@ class Metasploit3 < Msf::Auxiliary
             'to'  		      => to,
         )
 
-        printresults(results) if datastore['DEBUG'] == true and results["rdata"] != nil
+        if results != nil
+          printresults(results) if datastore['DEBUG'] == true and results["rdata"] != nil
 
-        if results["rdata"] != nil and results["rdata"]['resp'] =~ /^18|^20|^48/ and results["rawdata"].to_s =~ /#{results["callopts"]["tag"]}/
-          print_good("Call: #{from} ==> #{to} is Ringing (Server Response: #{results["rdata"]['resp_msg'].split(" ")[1,5].join(" ")})")
-        else
-          vprint_status("Call: #{from} ==> #{to} is Failed (Server Response: #{results["rdata"]['resp_msg'].split(" ")[1,5].join(" ")})") if results["rdata"] != nil
+          if results["rdata"]['resp'] =~ /^18|^20|^48/ and results["callopts"] != nil and results["rawdata"].to_s =~ /#{results["callopts"]["tag"]}/
+            print_good("Call: #{from} ==> #{to} is Ringing (Server Response: #{results["rdata"]['resp_msg'].split(" ")[1,5].join(" ")})")
+          else
+            vprint_status("Call: #{from} ==> #{to} is Failed (Server Response: #{results["rdata"]['resp_msg'].split(" ")[1,5].join(" ")})") if results["rdata"] != nil
+          end
         end
       end
     end

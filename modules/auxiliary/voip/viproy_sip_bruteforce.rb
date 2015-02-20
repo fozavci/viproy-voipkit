@@ -42,10 +42,11 @@ class Metasploit3 < Msf::Auxiliary
     [
       Opt::CHOST,
       Opt::CPORT(5065),
+      OptString.new('DELAY',   [true, 'Delay in seconds',"0"]),
       OptString.new('USERAGENT',   [ false, "SIP user agent" ]),
       OptBool.new('USER_AS_FROM_and_TO', [true, 'Try the username as the from/to for all users', true]),
       OptBool.new('DEREGISTER', [true, 'De-Register After Successful Login', false]),
-      OptString.new('REALM',   [ true, "The login realm to probe", "realm.com.tr"]),
+      OptString.new('REALM',   [ false, "The login realm to probe at each host", nil]),
       OptString.new('TO',   [ false, "The destination username to probe", "1000"]),
       OptString.new('FROM',   [ false, "The source username to probe", "1000"]),
       OptString.new('MACADDRESS',   [ false, "MAC Address for Vendor", "000000000000"]),
@@ -65,7 +66,7 @@ class Metasploit3 < Msf::Auxiliary
     # Socket parameters
     sockinfo["listen_addr"] = datastore['CHOST']
     sockinfo["listen_port"] = datastore['CPORT']
-    sockinfo["dest_addr"] =datastore['RHOST']
+    sockinfo["dest_addr"] = dest_addr = datastore['RHOST']
     sockinfo["dest_port"] = datastore['RPORT']
 
     method = datastore['METHOD']
@@ -106,6 +107,7 @@ class Metasploit3 < Msf::Auxiliary
   def do_login(user,password,from,to,dest_addr,method)
 
     realm = datastore['REALM']
+    Rex.sleep(datastore['DELAY'].to_i)
 
     results = send_register(
       'login'  	  => true,
@@ -128,8 +130,9 @@ class Metasploit3 < Msf::Auxiliary
 
       if datastore['DEBUG'] != true
         # reporting the validated credentials
-        res=report_creds(user,password,results["status"])
-        print_good(res.gsub("\tC","C"))
+        res=report_creds(user,password,realm,results["status"])
+        #print_good(res.gsub("\tC","C"))
+        print_good("IP:Realm: #{dest_addr}:#{realm}\t User: #{user} \tPassword: #{password} \tResult: #{convert_error(results["status"])}")
       end
 
       # Sending de-register
@@ -147,7 +150,7 @@ class Metasploit3 < Msf::Auxiliary
       end
     else
       if results["rdata"] !=nil
-        vprint_status("User: #{user} \tPassword: #{password} \tResult: #{convert_error(results["status"])}")
+        print_status("IP:Realm: #{dest_addr}:#{realm}\t User: #{user} \tPassword: #{password} \tResult: #{convert_error(results["status"])}")
       else
         vprint_status("No response received from #{dest_addr}")
       end

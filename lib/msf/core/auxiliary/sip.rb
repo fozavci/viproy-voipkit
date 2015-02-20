@@ -48,7 +48,7 @@ module Auxiliary::SIP
   def sipsocket_connect
     case self.proto
       when 'udp'
-        listen_port = self.listen_port
+        listen_port = datastore["CPORT"].to_i || 5060
         while listen_port
           begin
             self.sock = Rex::Socket::Udp.create(
@@ -128,7 +128,12 @@ module Auxiliary::SIP
     report << "\tServer \t\t: #{rdata['server']}\n" if rdata['server']
     report << "\tWarning \t: #{rdata['warning']}\n" if rdata['warning']
     report << "\tUser-Agent \t: #{rdata['agent']}\n"	if rdata['agent']
-    report << "\tRealm \t\t: #{rdata['digest']['realm']}\n" if rdata['digest']
+    if rdata['digest']
+      report << "\tRealm \t\t: #{rdata['digest']['realm']}\n"
+      realm = rdata['digest']['realm']
+    else
+      realm = nil
+    end
     report << "\tContact\t\t: #{rdata['contact']}\n" if rdata['resp_msg'].split(" ")[1] == "301"
 
     printdebug(results) if datastore["DEBUG"] == true
@@ -153,12 +158,12 @@ module Auxiliary::SIP
       )
 
       # reporting the validated credentials
-      res = report_creds(user,password,status) if user != nil
+      res = report_creds(user,password,realm,status) if user != nil
       report << res if ! res.nil?
       print_good(report)
     else
       report << "\tCredentials\t: User => #{user} Password => #{password}\n" if user != nil and datastore['LOGIN']
-      if method == 'register'
+      if method == 'REGISTER'
         print_status(report)
       else
         vprint_status(report)
@@ -167,7 +172,7 @@ module Auxiliary::SIP
   end
 
   # reporting the validated credentials
-  def report_creds(user,password,status)
+  def report_creds(user,password,realm,status)
     if status =~ /without/
       user="User=NULL,FROM=#{datastore["FROM"]},TO=#{datastore["TO"]}"
       password=nil
@@ -200,7 +205,9 @@ module Auxiliary::SIP
 
     if self.customheaders and self.customheaders != ""
       print_debug("Custom Headers:")
-      print_debug("\t#{self.customheaders.gsub("\r\n","")}")
+      self.customheaders.split("\r\n").each {|ch|
+        print_debug("\t#{ch}")
+      }
     end
   end
 
@@ -223,10 +230,14 @@ module Auxiliary::SIP
         return "Moved Permanently"
       when :not_found
         return "Not Found"
+      when :unsupported
+        return "Unsupported Media Type"
       when :failed
         return "Authentication Failed"
       when :send_error
         return "Request Sending is Failed"
+      when :server_unavailable
+        return "Service Available"
       when :server_error
         return "Internal Server Error"
       when :nodigest
@@ -333,25 +344,19 @@ module Auxiliary::SIP
   # Send generic request with authentication
   #
   def generic_request_withauth(method,req_options={})
+    from=req_options["from"]
+    fromname=req_options["fromname"]
+    to=req_options["to"]
+
     login = req_options["login"] || false
     loginmethod = req_options["loginmethod"] || method
 
     if login and loginmethod == "REGISTER"
-      regopts=req_options.clone
 
-      #Cisco generic Register methods requests same FROM and TO fields
-      if self.vendor == "ciscogeneric"
-        regopts['to']=regopts['from']
-      else
-        #From and TO fields should be Username for REGISTER
-        if datastore['USEREQFROM'] == true
-          regopts['from']=regopts['user']
-          regopts['to']=regopts['user']
-        end
-      end
-
-      results = send_register(regopts)
+      results = send_register(req_options)
       reg_status = results["status"]
+
+      callopts = results["callopts"]
 
       printdebug(results) if datastore["DEBUG"] == true
 
@@ -366,6 +371,10 @@ module Auxiliary::SIP
       end
     end
 
+    req_options["from"]=from
+    req_options["fromname"]=fromname
+    req_options["to"]=to
+
     print_debug("No authentication performed.") if datastore['DEBUG']
 
     if method == "MESSAGE" and datastore["DOS_COUNT"]
@@ -379,7 +388,7 @@ module Auxiliary::SIP
     end
 
     if results["rawdata"].nil?
-      print_error("No response recieved!")
+      print_error("No response received!")
       return
     else
       printdebug(results) if datastore["DEBUG"] == true
@@ -458,8 +467,12 @@ module Auxiliary::SIP
         result=:cred_required
       when "486"
         result=:user_busy
+      when "415"
+        result=:unsupported
       when /^60/
         result=:decline_error
+      when /503/
+        result=:service_unavailable
       when /^50/
         result=:server_error
       else
@@ -496,6 +509,20 @@ module Auxiliary::SIP
   # Authentication
   #
   def auth(method,req_options,results)
+
+
+    #Cisco generic Register methods requests same FROM and TO fields
+    if self.vendor == "ciscogeneric" and method == 'REGISTER'
+      req_options['to'] = req_options['from']
+    else
+      #From and TO fields should be Username for REGISTER
+      if datastore['USEREQFROM'] == true and method == 'REGISTER'
+        req_options['from'] = req_options['user']
+        req_options['fromname'] = nil
+        req_options['to'] = req_options['user']
+      end
+    end
+
     initmslync = results["initmslync"] || false
 
     case
@@ -511,9 +538,6 @@ module Auxiliary::SIP
     end
 
     req_options['callopts'] = results["callopts"] if results["callopts"] != nil
-
-    #Cisco generic Register methods requests same FROM and TO fields
-    req_options['to'] = req_options['from'] if self.vendor == "ciscogeneric"
 
     #Sending Request with Nonce or NTLM request
     results["callopts"],send_state=send_data(method,req_options)
@@ -540,11 +564,14 @@ module Auxiliary::SIP
         results["status"] = :succeed
       when /^40/
         results["status"] = :failed
+      when "415"
+        results["status"] = :unsupported
       when /^301/
         results["status"] = :failed
       else
         results["status"] = :authorization_error
     end
+
     return results
   end
 
@@ -577,12 +604,13 @@ module Auxiliary::SIP
   # Response Check
   #
   def resp_get(method,rdebug=[])
-    possible= /^18|^20|^30|^40|^48|^60|^50/
+    possible= /^18|^20|^30|^40|415|503|^48|^60|^50/
     rdata,rawdata=recv_data
     rdebug << rdata
 
     while (rdata != nil and !(rdata['resp'] =~ possible))
       rdata,rawdata=recv_data
+      vprint_status("Nonce: #{rdata["digest"]["nonce"]}") if datastore["DELAY"] != "0" and rdata != nil and rdata["digest"] != nil
       break if rdebug.length > 9
     end
 
@@ -602,20 +630,31 @@ module Auxiliary::SIP
     cnonce=Rex::Text.rand_text_alphanumeric(10)
     nc="00000001"
 
-    if digestopts['algorithm'] == 'MD5-sess'
-      h1 = Digest::MD5.hexdigest("#{digestopts['username']}:#{digestopts['realm']}:#{digestopts['password']}")
-      hash1 = Digest::MD5.hexdigest("#{h1}:#{digestopts['nonce']}:#{cnonce}")
+    case digestopts['algorithm']
+      when 'MD5-sess'
+        h1 = Digest::MD5.hexdigest("#{digestopts['username']}:#{digestopts['realm']}:#{digestopts['password']}")
+        hash1 = Digest::MD5.hexdigest("#{h1}:#{digestopts['nonce']}:#{cnonce}")
+      when 'MD5'
+        hash1 = Digest::MD5.hexdigest("#{digestopts['username']}:#{digestopts['realm']}:#{digestopts['password']}")
     else
-      hash1 = Digest::MD5.hexdigest("#{digestopts['username']}:#{digestopts['realm']}:#{digestopts['password']}")
+      print_error("ERROR 1: UNKNOWN ALGORITHM REQUESTED IN THE AUTHENTICATION")
+      return
     end
 
-    hash2 = Digest::MD5.hexdigest("#{digestopts['req_type']}:#{digestopts['uri']}")
 
-    if digestopts['qop'] =~ /auth/
-      response=Digest::MD5.hexdigest("#{hash1}:#{digestopts['nonce']}:#{nc}:#{cnonce}:#{digestopts['qop']}:#{hash2}")
-    else
-      response=Digest::MD5.hexdigest("#{hash1}:#{digestopts['nonce']}:#{hash2}")
+    case digestopts['qop']
+      when "auth"
+        hash2 = Digest::MD5.hexdigest("#{digestopts['req_type']}:#{digestopts['uri']}")
+        response=Digest::MD5.hexdigest("#{hash1}:#{digestopts['nonce']}:#{nc}:#{cnonce}:#{digestopts['qop']}:#{hash2}")
+      when "auth-in"
+        # HA2=MD5(method:digestURI:MD5(entityBody))
+        print_error("ERROR 2: ONLY AUTH-INT REQUESTED IN THE AUTHENTICATION")
+        return
+      else
+        hash2 = Digest::MD5.hexdigest("#{digestopts['req_type']}:#{digestopts['uri']}")
+        response=Digest::MD5.hexdigest("#{hash1}:#{digestopts['nonce']}:#{hash2}")
     end
+
 
     authdata = "username=\"#{digestopts['username']}\", realm=\"#{digestopts['realm']}\", nonce=\"#{digestopts['nonce']}\", uri=\"#{digestopts['uri']}\", response=\"#{response}\""
     if digestopts['algorithm']
@@ -623,10 +662,14 @@ module Auxiliary::SIP
     else
       authdata << ", algorithm=MD5"
     end
-    authdata << ", cnonce=\"#{cnonce}\"" if digestopts['algorithm'] == "MD5-sess" or digestopts['qop'] =~ /auth/
-    authdata << ", qop=#{digestopts['qop']}, nc=#{nc}" if digestopts['qop'] =~ /auth/
+
+
+    #There could be a bug here. This will be tested for the multiple QOP options.
+    #authdata << ", qop=#{digestopts['qop']}, nc=#{nc}" if digestopts['qop'] =~ /auth/
+    authdata << ", cnonce=\"#{cnonce}\", qop=\"auth\", nc=\"#{nc}\"" if digestopts['algorithm'] == "MD5-sess" or digestopts['qop'] == "auth"
 
     return authdata
+
   end
 
 
@@ -921,7 +964,7 @@ module Auxiliary::SIP
 
       pid = pid+"@"+self.dest_addr if ! (pid =~ /@/)
 
-      customheader << "P-Asserted-Identity: <sip:#{pid}>;party=called;screen=no;privacy=off\r\n"
+      customheader << "P-Asserted-Identity: <sip:#{pid}>;party=called;screen=yes;privacy=off\r\n"
     end
 
     if datastore['Remote-Party-ID'] != nil
@@ -936,7 +979,7 @@ module Auxiliary::SIP
 
       pid = pid+"@"+self.dest_addr if ! (pid =~ /@/)
 
-      customheader << "Remote-Party-ID: <sip:#{pid}>;party=called;screen=no;privacy=off\r\n"
+      customheader << "Remote-Party-ID: <sip:#{pid}>;party=called;screen=yes;privacy=off\r\n"
     end
 
 
@@ -947,33 +990,30 @@ module Auxiliary::SIP
     return customheader
   end
 
-
+  #There is a Bug in this function for WWW-Authentication !!!!!
   # Parse the authentication
   def parse_auth(data)
     result={}
-    str=""
+    str = ""
     var = nil
     quote = 0
     data.each_char { |c|
       quote += 1 if c == '"'
       if c == "="
-        var = str
+        var = str.gsub(" ","")
         val = nil
         str = ""
       else
-        case quote
-          when 0
-            if c != ","
+        if quote % 2 == 0
+            if c != "," and c != '"'
               str << c
             else
               result[var]=str
               var = nil
               str = ""
             end
-          when 1
-            str << c if c != '"'
-          when 2
-            quote = 0
+        else
+            str << c if c != '"' and c != '"'
         end
       end
     }

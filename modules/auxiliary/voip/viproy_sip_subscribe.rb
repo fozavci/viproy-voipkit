@@ -38,6 +38,7 @@ class Metasploit3 < Msf::Auxiliary
     register_advanced_options(
         [
             Opt::CHOST,
+            Opt::CPORT(5060),
             OptString.new('USERAGENT',   [ false, "SIP user agent" ]),
             OptString.new('SUBSCRIBETYPE',   [ false, "Subscribe message type (presence,message)", 'message']),
             OptString.new('REALM',   [ false, "The login realm to probe at each host", nil]),
@@ -128,7 +129,7 @@ class Metasploit3 < Msf::Auxiliary
 
       rdata = results["rdata"]
 
-      if rdata != nil and rdata['resp'] =~ /^18|^20|^48/ and resutls["rawdata"].to_s =~ /#{results["callopts"]["tag"]}/
+      if rdata != nil and rdata['resp'] =~ /^18|^20|^48/ and results["rawdata"].to_s =~ /#{results["callopts"]["tag"]}/
         print_good("Message: #{from} ==> #{to} Subscribe Sent (Server Response: #{rdata['resp_msg'].split(" ")[1,5].join(" ")})")
       else
         vprint_status("Message: #{from} ==> #{to} Subscription Failed (Server Response: #{rdata['resp_msg'].split(" ")[1,5].join(" ")})") if rdata != nil

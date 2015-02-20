@@ -38,7 +38,7 @@ class Metasploit3 < Msf::Auxiliary
     register_advanced_options(
     [
       Opt::CHOST,
-      Opt::CPORT(5065),
+      Opt::CPORT(5060),
       OptString.new('USERAGENT',   [ false, "SIP user agent" ]),
       OptString.new('TO',   [ false, "The destination username to probe at each host", "1000"]),
       OptString.new('FROM',   [ false, "The source username to probe at each host", "1000"]),
@@ -123,21 +123,23 @@ class Metasploit3 < Msf::Auxiliary
       possible = /^40[0-3]|^40[5-9]|^200/
     end
 
-    rdata = results["rdata"]
-    if rdata != nil and rdata['resp'] =~ possible
-      user=rdata['from'].split("@")[0]
+    if results != nil
+      rdata = results["rdata"]
+      if rdata != nil and rdata['resp'] =~ possible
+        user=rdata['from'].split("@")[0]
 
-      if ! reported_users.include?(user)
-        print_good("User #{user} is Valid (Server Response: #{rdata['resp_msg'].split(" ")[1,5].join(" ")})")
-        vprint_status("Warning: #{rdata['warning']}") if rdata['warning']
-        reported_users << user
+        if reported_users == nil or ! reported_users.include?(user)
+          print_good("User #{user} is Valid (Server Response: #{rdata['resp_msg'].split(" ")[1,5].join(" ")})")
+          vprint_status("Warning: #{rdata['warning']}") if rdata['warning']
+          reported_users << user
+        end
+      else
+        vprint_status("User #{user} is Invalid (#{rdata['resp_msg'].split(" ")[1,5].join(" ")})") if rdata !=nil
+        vprint_status("\tWarning \t\t: #{rdata['warning']}\n") if ! rdata.nil? and rdata['warning']
       end
-    else
-      vprint_status("User #{user} is Invalid (#{rdata['resp_msg'].split(" ")[1,5].join(" ")})") if rdata !=nil
-      vprint_status("\tWarning \t\t: #{rdata['warning']}\n") if ! rdata.nil? and rdata['warning']
-    end
 
-    printresults(results) if datastore['DEBUG'] == true
+      printresults(results) if datastore['DEBUG'] == true
+    end
 
     return reported_users
   end

@@ -37,7 +37,9 @@ class Metasploit3 < Msf::Auxiliary
       OptString.new('MACADDRESS',   [ false, "MAC Address for Vendor", "000000000000"]),
       OptString.new('VENDOR',   [ true, "Vendor (GENERIC|CISCODEVICE|CISCOGENERIC|MSLYNC)", "GENERIC"]),
       OptString.new('CISCODEVICE',   [ true, "Cisco device type for authentication (585, 7940)", "7940"]),
+      OptString.new('CUSTOMHEADER', [false, 'Custom Headers for Requests', nil]),
       OptBool.new('DEBUG',   [ false, "Debug Level", false]),
+      Opt::CPORT(5060),
     ], self.class)
   end
 

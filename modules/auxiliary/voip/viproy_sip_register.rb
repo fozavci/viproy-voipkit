@@ -35,13 +35,15 @@ class Metasploit3 < Msf::Auxiliary
     register_advanced_options(
     [
       Opt::CHOST,
-      Opt::CPORT(5065),
+      Opt::CPORT(5060),
       OptString.new('USERAGENT',   [ false, "SIP user agent" ]),
+      OptString.new('DELAY',   [true, 'Delay in seconds',"0"]),
       OptString.new('REALM',   [ false, "The login realm to probe at each host", nil]),
       OptString.new('DEREGISTER', [false, 'De-Register the user (AFTER, BEFORE, BOTH, ONLY)']),
       OptString.new('MACADDRESS',   [ false, "MAC Address for Vendor", "000000000000"]),
       OptString.new('VENDOR',   [ true, "Vendor (GENERIC|CISCODEVICE|CISCOGENERIC|MSLYNC)", "GENERIC"]),
       OptString.new('CISCODEVICE',   [ true, "Cisco device type for authentication (585, 7940)", "7940"]),
+      OptString.new('CUSTOMHEADER', [false, 'Custom Headers for Requests', nil]),
       OptBool.new('DEBUG',   [ false, "Debug Level", false]),
       OptBool.new('USEREQFROM',   [ false, "FROM will be cloned from USERNAME", true]),
     ], self.class)
@@ -53,7 +55,7 @@ class Metasploit3 < Msf::Auxiliary
       # Login parameters
       user = datastore['USERNAME']
       password = datastore['PASSWORD']
-      realm = datastore['REALM']
+      realms = datastore['REALM']
       from = datastore['FROM']
       to = datastore['TO']
       login = datastore['LOGIN']
@@ -74,46 +76,70 @@ class Metasploit3 < Msf::Auxiliary
       sipsocket_start(sockinfo)
       sipsocket_connect
 
-      context = {
-          "method"    => "register",
-          "user"      => user,
-          "password"  => password
-      }
-
-      case deregister
-        when "ONLY"
-          # Sending de-register
-          deregister(login,user,password,realm,from,to,context)
-          return
-        when /BEFORE|BOTH/
-          # Sending de-register
-          deregister(login,user,password,realm,from,to,context)
+      if realms == nil
+        rcount = 1
+        realm = nil
+      else
+        rcount = realms.split(" ").length
+        realm = ""
       end
 
-      if vendor == 'mslync'
-        results = send_negotiate(
-            'realm'		  => datastore['REALM'],
-            'from'    	=> datastore['FROM'],
-            'to'    	  => datastore['TO']
+      rcount.times do |i|
+        if realm != nil
+          realm = realms.split(" ")[i]
+        end
+
+        context = {
+            "method" => "REGISTER",
+            "user" => user,
+            "password" => password
+        }
+
+        case deregister
+          when "ONLY"
+            # Sending de-register
+            deregister(login, user, password, realm, from, to, context)
+            return
+          when /BEFORE|BOTH/
+            # Sending de-register
+            deregister(login, user, password, realm, from, to, context)
+        end
+
+        if vendor == 'mslync'
+          results = send_negotiate(
+              'realm' => datastore['REALM'],
+              'from' => datastore['FROM'],
+              'to' => datastore['TO']
+          )
+          printresults(results) if datastore['DEBUG'] == true
+        end
+
+        print_debug("Register request is sending.") if datastore["DEBUG"]
+
+        results = send_register(
+            'login' => login,
+            'user' => user,
+            'password' => password,
+            'realm' => realm,
+            'from' => from,
+            'to' => to
         )
-        printresults(results) if datastore['DEBUG'] == true
+
+        if rcount > 1
+          #printing the realms which receive different responses
+          rdata = results["rdata"]
+          smsg = rdata['resp_msg'].split(" ")[1,5].join(" ")
+          if smsg != "403 Forbidden"
+            print_status("#{dest_addr}:#{dest_port} #{realm} => #{smsg}")
+          end
+        else
+          printresults(results, context)
+        end
+
+
+        # Sending de-register
+        deregister(login, user, password, realm, from, to, context) if deregister =~ /AFTER|BOTH/
       end
-
-      vprint_status("Register request is sending.")
-
-      results = send_register(
-          'login'  	    => login,
-          'user'      	=> user,
-          'password'	  => password,
-          'realm'		    => realm,
-          'from'    	  => from,
-          'to'    	    => to
-      )
-
-      printresults(results,context)
-
-      # Sending de-register
-      deregister(login,user,password,realm,from,to,context) if deregister =~ /AFTER|BOTH/
 
       sipsocket_stop
     }

@@ -46,7 +46,7 @@ class Metasploit3 < Msf::Auxiliary
     register_advanced_options(
     [
       Opt::CHOST,
-      Opt::CPORT(5065),
+      Opt::CPORT(5060),
       OptString.new('USERAGENT',   [ false, "SIP user agent" ]),
       OptString.new('REALM',   [ false, "The login realm to probe at each host", nil]),
       OptString.new('LOGINMETHOD', [false, 'Login Method (REGISTER | MESSAGE)', "MESSAGE"]),
@@ -109,7 +109,7 @@ class Metasploit3 < Msf::Auxiliary
     if datastore['MESSAGE_CONTENT'] =~ /FUZZ/
       message = Rex::Text.pattern_create(datastore['MESSAGE_CONTENT'].split(" ")[1].to_i)
     else
-      message = datastore['MESSAGE_CONTENT']
+      message = datastore['MESSAGE_CONTENT'].gsub("\\n","\r\n")
     end
 
     # Message Content
@@ -156,12 +156,11 @@ class Metasploit3 < Msf::Auxiliary
         )
 
         printresults(results) if datastore['DEBUG'] == true
-        print_good("CallOpts: #{results["callopts"]}")
 
-        if results["rdata"] != nil and results["rdata"]['resp'] =~ /^18|^20|^48/
+        if results != nil and results["rdata"] != nil and results["rdata"]['resp'] =~ /^18|^20|^48/
           print_good("Message: #{from} ==> #{to} Message Sent (Server Response: #{results["rdata"]['resp_msg'].split(" ")[1,5].join(" ")})")
         else
-          vprint_status("Message: #{from} ==> #{to} Message Failed (Server Response: #{results["rdata"]['resp_msg'].split(" ")[1,5].join(" ")})") if results["rdata"] != nil
+          vprint_status("Message: #{from} ==> #{to} Message Failed (Server Response: #{results["rdata"]['resp_msg'].split(" ")[1,5].join(" ")})") if results != nil and results["rdata"] != nil
         end
 
       end
