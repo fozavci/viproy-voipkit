@@ -17,7 +17,7 @@ class Metasploit3 < Msf::Auxiliary
       'Name'        => 'Viproy DDOS SIP Amplification Attack',
       'Version'     => '1',
       'Description' => 'DDOS SIP UDP amplification attack module',
-      'Author'      => 'Fatih Ozavci <viproy.com/fozavci>',
+      'Author'      => 'fozavci',
       'License'     => MSF_LICENSE
     )
 

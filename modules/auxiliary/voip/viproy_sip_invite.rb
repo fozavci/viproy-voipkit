@@ -20,7 +20,7 @@ class Metasploit3 < Msf::Auxiliary
       'Name'        => 'Viproy SIP Invite Tester',
       'Version'     => '1',
       'Description' => 'Invite Testing Module for SIP Services',
-      'Author'      => 'Fatih Ozavci <viproy.com/fozavci>',
+      'Author'      => 'fozavci',
       'License'     => MSF_LICENSE
     )
 

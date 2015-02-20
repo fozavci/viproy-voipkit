@@ -18,7 +18,7 @@ class Metasploit3 < Msf::Auxiliary
       'Name'        => 'Viproy SIP User and Password Brute Forcer',
       'Version'     => '1',
       'Description' => 'Brute Force Module for SIP Services',
-      'Author'      => 'Fatih Ozavci <viproy.com/fozavci>',
+      'Author'      => 'fozavci',
       'License'     => MSF_LICENSE
     )
 

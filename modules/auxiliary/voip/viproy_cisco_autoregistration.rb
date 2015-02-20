@@ -15,7 +15,7 @@ class Metasploit3 < Msf::Auxiliary
       'Name'        => 'Viproy Cisco Auto Registration Analyser',
       'Version'     => '1',
       'Description' => 'Viproy Cisco auto registration analyser',
-      'Author'      => 'Fatih Ozavci <viproy.com/fozavci>',
+      'Author'      => 'fozavci',
       'License'     => MSF_LICENSE
     )
 

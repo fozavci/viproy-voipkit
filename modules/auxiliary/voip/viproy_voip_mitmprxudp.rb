@@ -15,7 +15,7 @@ class Metasploit3 < Msf::Auxiliary
       'Version'        => '1',
       'Description'    => 'MITM Proxy for UDP',
       'License'        => MSF_LICENSE,
-      'Author'         => 'Fatih Ozavci - viproy.com/fozavci',
+      'Author'         => 'fozavci',
       'References'     =>	[],
     )
     deregister_options('RHOST','RHOSTS','RPORT')

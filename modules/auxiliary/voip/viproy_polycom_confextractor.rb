@@ -17,7 +17,7 @@ class Metasploit3 < Msf::Auxiliary
         'Name'        => 'Viproy Polycom Configuration Extractor Module',
         'Version'     => '1',
         'Description' => 'Viproy Polycom Configuration Extractor Module',
-        'Author'      => 'Fatih Ozavci <viproy.com/fozavci>',
+        'Author'      => 'fozavci',
         'License'     => MSF_LICENSE
     )
 

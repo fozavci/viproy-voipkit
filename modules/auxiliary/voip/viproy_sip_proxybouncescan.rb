@@ -17,7 +17,7 @@ class Metasploit3 < Msf::Auxiliary
       'Name'        => 'Viproy UDP SIP Proxy Bounce Scanner',
       'Version'     => '1',
       'Description' => 'UDP based SIP Proxy bounce scanner module',
-      'Author'      => 'Fatih Ozavci <viproy.com/fozavci>',
+      'Author'      => 'fozavci',
       'License'     => MSF_LICENSE
     )
     deregister_options('RPORT', 'RHOST', 'THREADS' )

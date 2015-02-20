@@ -17,7 +17,7 @@ class Metasploit3 < Msf::Auxiliary
       'Name'        => 'Viproy SIP Options Module',
       'Version'     => '1',
       'Description' => 'Options Discovery Module for SIP Services',
-      'Author'      => 'Fatih Ozavci <viproy.com/fozavci>',
+      'Author'      => 'fozavci',
       'License'     => MSF_LICENSE
     )
 

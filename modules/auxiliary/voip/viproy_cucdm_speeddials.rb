@@ -19,7 +19,7 @@ class Metasploit3 < Msf::Auxiliary
         This tool can be tested with the voss-xmlservice component of Viproy.
         https://github.com/fozavci/viproy-voipkit/raw/master/external/voss-xmlservice.rb
       },
-      'Author'      => 'Fatih Ozavci <viproy.com/fozavci>',
+      'Author'      => 'fozavci',
       'References'     =>
           [
               ['CVE', 'CVE-2014-3300'],

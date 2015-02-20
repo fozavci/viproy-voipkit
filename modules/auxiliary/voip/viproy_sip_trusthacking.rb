@@ -16,7 +16,7 @@ class Metasploit3 < Msf::Auxiliary
         'Name'        => 'Viproy SIP Services Trust Analyzer',
         'Version'     => '1',
         'Description' => 'Trust Analyzer for SIP Services ',
-        'Author'      => 'Fatih Ozavci <viproy.com/fozavci>',
+        'Author'      => 'fozavci',
         'License'     => MSF_LICENSE
     )
 

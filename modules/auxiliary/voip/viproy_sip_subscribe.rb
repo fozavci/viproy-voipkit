@@ -17,7 +17,7 @@ class Metasploit3 < Msf::Auxiliary
       'Name'        => 'Viproy SIP Subscribe Module',
       'Version'     => '1',
       'Description' => 'Subscribe Discovery Module for SIP Services',
-      'Author'      => 'Fatih Ozavci <viproy.com/fozavci>',
+      'Author'      => 'fozavci',
       'License'     => MSF_LICENSE
     )
 
