@@ -5,7 +5,6 @@
 
 require 'msf/core'
 
-
 class Metasploit3 < Msf::Auxiliary
 
   include Msf::Auxiliary::Report
@@ -30,7 +29,7 @@ class Metasploit3 < Msf::Auxiliary
       [
           OptString.new('PROTO_TYPE',   [ true, "Device Type (e.g. SIP,SEP)", "SEP"]),
           OptString.new('DEVICE_IP',   [ false, "IP address of the device for spoofing"]),
-          OptString.new('CISCOCLIENT',   [ true, "Cisco software type (ipphone,cipc)","cipc"]),
+          OptString.new('DEVICE_TYPE',   [ true, "Cisco device/software type (7961G_GE,CIPC)","CIPC"]),
           OptString.new('CAPABILITIES',   [ false, "Capabilities of the device (e.g. Router, Host, Switch)", "Host"]),
           OptString.new('PLATFORM',   [ false, "Platform of the device", "Cisco IP Phone 7975"]),
           OptString.new('SOFTWARE',   [ false, "Software of the device", "SCCP75.9-3-1SR2-1S"]),
@@ -50,7 +49,7 @@ class Metasploit3 < Msf::Auxiliary
       macs = []
     end
     macs << datastore['MAC'].upcase if datastore['MAC']
-    client=datastore['CISCOCLIENT'].downcase
+    device_type=datastore['DEVICE_TYPE']
     if datastore['DEVICE_IP']
       device_ip=datastore['DEVICE_IP']
     else
@@ -62,7 +61,7 @@ class Metasploit3 < Msf::Auxiliary
       device="#{datastore['PROTO_TYPE']}#{mac.gsub(":","")}"
       begin
         connect
-        register(sock,device,device_ip,client,mac)
+        register(sock,device,device_ip,device_type,mac)
         disconnect
       rescue Rex::ConnectionError => e
         print_error("Connection failed: #{e.class}: #{e}")

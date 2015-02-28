@@ -11,9 +11,9 @@ module Msf
     attr_accessor :prxclient_port, :prxclient_ip, :client_port, :client_ip
     attr_accessor :prxserver_port, :prxserver_ip, :server_port, :server_ip
 
-    def register(sock,device,device_ip,client,mac,configinfo=true)
+    def register(sock,device,device_ip,device_type,mac,configinfo=true)
       #Register request
-      sock.put(prep_register(device,device_ip,client))
+      sock.put(prep_register(device,device_ip,device_type))
       print_status("Register request sent for #{device}")
 
       c=0
@@ -167,7 +167,13 @@ module Msf
       begin
         responses=[]
         while sock.has_read_data?(2)
-          return nil if sock.eof?
+          if ! sock or sock.eof?
+            if responses == []
+              return ["error",nil,nil]
+            else
+              return responses
+            end
+          end
           res = sock.get_once
           len = bytes_to_length(res[0,4])
           firstbyte=0
@@ -203,7 +209,8 @@ module Msf
         print_debug("No data to read.") if datastore["DEBUG"] == true
         return responses
       rescue Exception => e
-        return r=["error",e,nil]
+        print_error("The connection disconnected, the IP phone could be trying to register back.")
+        return ["error",e,nil]
       end
     end
     def getconfiguration(r,m,lines,configinfo)
@@ -221,18 +228,19 @@ module Msf
           vprint_status("Line request sent for #{i+1} of #{lines}")
 
           print_debug("Line status is looping") if datastore["DEBUG"] == true
+
           responses=getresponse
 
           responses.each {|response|
             r,m,l=response
             if r == "LineStatMessage"
-              print_good("The line #{i+1} information:") if configinfo
-              m.split("\t").each do |l|
-                print_good("  #{l}") if configinfo
-              end
-              linestatrecevied += 1
-              i += 1
-              break
+                print_good("The line #{i+1} information:") if configinfo
+                m.split("\t").each do |l|
+                  print_good("  #{l}") if configinfo
+                end
+                linestatrecevied += 1
+                i += 1
+                break
             end
           }
 
@@ -262,22 +270,16 @@ module Msf
       b =  length_to_bytes(p.length,4) #length
       return b+"\x00\x00\x00\x00"+p
     end
-    def prep_register(device,device_ip,cipc="ipphone")
+    def prep_register(device,device_ip,device_type="7961G_GE")
       mac=device[3,12]
       p = "\x01\x00\x00\x00" #register message
       p << "#{device}\x00\x00\x00\x00\x00\x00\x00\x00\x00" #device id
       p << ip_to_bytes(device_ip) #"\xC0\xA8\n6" #ip address
-      if cipc == "cipc"
-        # cisco ip communicator client
-        device_type=30016
-      else
-        # cisco ip phone
-        device_type=309
-      end
-      p << length_to_bytes(device_type,4) #device type
+
+      p << get_devicetype(device_type) #device type
       p << "\x05\x00\x00\x00"
 
-      if cipc == "cipc"
+      if device_type.downcase == "cipc"
         # cisco ip communicator client
         p << "\x00\x00\x00\x00\x14\x00\x72\x85\x01\x00\x00\x00\x00\x00\x00\x00#{mac_to_bytes(mac)}\x00\x00\x00\x00"
         p << "\x00\x00\x03\x00\x00\x00$\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
@@ -290,6 +292,20 @@ module Msf
 
       b=length_to_bytes(p.length,4) #length
       return b+"\x00\x00\x00\x00"+p
+    end
+    def get_devicetype(device_type)
+      case device_type.downcase
+        when "cipc"
+          # cisco ip communicator client
+          dt = "@u\x00\x00"
+        when "7941g"
+          # Cisco 7941G IP Phone
+          dt = "\x73\x00\x00\x00"
+        else
+          # Cisco 7961G_GE IP Phone
+          dt = "\x35\x01\x00\x00"
+      end
+      return dt
     end
     def prep_unregister
       return prep_raw("\x27")
@@ -344,7 +360,7 @@ module Msf
           userid = bytes_to_length(p[27,4])
           station = bytes_to_length(p[31,4])
           username = p[35,40]
-          domain = p[75,40]
+          domain = p[76,40].split("\x00")[0]
           lines = bytes_to_length(p[116,4])
           speeddials = bytes_to_length(p[120,4])
           m = "Device: #{devicename}\tUser ID: #{userid}\tLines: #{lines}\tSpeed Dials: #{speeddials}\tDomain: #{domain}"
@@ -361,8 +377,9 @@ module Msf
           r = "ConfigStatMessage"
           devicename = p[12,15]
           lines = bytes_to_length(p[36,1])
-          domain = p[43,40]
-          m = "Device: #{devicename}\tUser ID: \tLines: #{lines}\tSpeed Dials: \tDomain: #{domain}"
+          speeddials = bytes_to_length(p[40,1])
+          domain = p[44,40].split("\x00")[0]
+          m = "Device: #{devicename}\tUser ID: \tLines: #{lines}\tSpeed Dials: #{speeddials}\tDomain: #{domain}"
         when "97000000"
           r = "ButtonTemplateMessage"
           m = nil
@@ -429,9 +446,9 @@ module Msf
         when "92000000"
           r = "LineStatMessage"
           lineid = bytes_to_length(p[12,4])
-          dirnumber = p[16,24]
-          fqdisplayname = p[40,40]
-          m = "Line: #{lineid}\tDirectory Number: #{dirnumber}\tDisplay Name: #{fqdisplayname}"
+          dirnumber = p[16,24].split("\x00")[0]
+          #fqdisplayname = p[40,40].split("\x00")[1]
+          m = "Line: #{lineid}\tDirectory Number: #{dirnumber}"
         when "47010000"
           # LineStatMessage for CM7 type C
           r = "LineStatMessage"
@@ -439,8 +456,8 @@ module Msf
           #dirnumber = p[20,5]
           #fqdisplayname = p[25,5]
           dirnumber = p[20,100].split("\x00")[0]
-          fqdisplayname = p[20,100].split("\x00")[1]
-          m = "Line: #{lineid}\tDirectory Number: #{dirnumber}\tDisplay Name: #{fqdisplayname}"
+          #fqdisplayname = p[20,100].split("\x00")[1] # May not be printable
+          m = "Line: #{lineid}\tDirectory Number: #{dirnumber}"
         when "90000000ForwardStatMessage"
           r = "ForwardStatMessage"
           fstatus = bytes_to_length(p[12,4])

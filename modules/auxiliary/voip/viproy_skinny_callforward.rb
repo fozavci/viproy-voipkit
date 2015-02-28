@@ -5,7 +5,6 @@
 
 require 'msf/core'
 
-
 class Metasploit3 < Msf::Auxiliary
 
   include Msf::Auxiliary::Report
@@ -33,7 +32,7 @@ class Metasploit3 < Msf::Auxiliary
           OptString.new('LINE',   [ false, "Source line (e.g. 1,2)", "1"]),
           OptString.new('PROTO_TYPE',   [ true, "Device Type (e.g. SIP,SEP)", "SEP"]),
           OptString.new('DEVICE_IP',   [ false, "IP address of the device for spoofing"]),
-          OptString.new('CISCOCLIENT',   [ true, "Cisco software type (ipphone,cipc)","cipc"]),
+          OptString.new('DEVICE_TYPE',   [ true, "Cisco device/software type (7961G_GE,CIPC)","CIPC"]),
           OptString.new('CAPABILITIES',   [ false, "Capabilities of the device (e.g. Router, Host, Switch)", "Host"]),
           OptString.new('PLATFORM',   [ false, "Platform of the device", "Cisco IP Phone 7975"]),
           OptString.new('SOFTWARE',   [ false, "Software of the device", "SCCP75.9-3-1SR2-1S"]),
@@ -49,7 +48,7 @@ class Metasploit3 < Msf::Auxiliary
       raise RuntimeError ,'MAC should be defined'
     end
     line=datastore['LINE'] || "1"
-    client=datastore['CISCOCLIENT'].downcase
+    device_type=datastore['DEVICE_TYPE']
     capabilities=datastore['CAPABILITIES'] || "Host"
     platform=datastore['PLATFORM'] || "Cisco IP Phone 7975"
     software=datastore['SOFTWARE'] || "SCCP75.9-3-1SR2-1S"
@@ -66,7 +65,7 @@ class Metasploit3 < Msf::Auxiliary
       connect
 
       #Register
-      register(sock,device,device_ip,client,mac)
+      register(sock,device,device_ip,device_type,mac)
 
       #Sending Register Available Lines Request
       sock.put(prep_registeravailablelines)
