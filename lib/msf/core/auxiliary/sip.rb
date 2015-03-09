@@ -123,6 +123,7 @@ module Auxiliary::SIP
     method = context["method"]
     user = context["user"]
     password = context["password"]
+    print_req = context["print_req"] #|| true
 
     report =  "#{rdata['source']}\n\tResponse\t: #{rdata['resp_msg'].split(" ")[1,5].join(" ")}\n"
     report << "\tServer \t\t: #{rdata['server']}\n" if rdata['server']
@@ -148,31 +149,26 @@ module Auxiliary::SIP
         service='SIP Server'
       end
 
-      # reporting the service information
-      report_service(
-          :host	  => self.dest_addr,
-          :port	  => self.dest_port,
-          :sname	=> 'sip',
-          :proto  => proto.downcase,
-          :info   => service
-      )
-
       # reporting the validated credentials
-      res = report_creds(user,password,realm,status) if user != nil
+      res = report_creds(user,password,realm,status,service) if user != nil
+
       report << res if ! res.nil?
-      print_good(report)
+      print_good(report) if print_req != false
     else
       report << "\tCredentials\t: User => #{user} Password => #{password}\n" if user != nil and datastore['LOGIN']
       if method == 'REGISTER'
-        print_status(report)
+        print_status(report) if print_req != false
       else
-        vprint_status(report)
+        vprint_status(report) if print_req != false
       end
     end
   end
 
   # reporting the validated credentials
-  def report_creds(user,password,realm,status)
+  # extracted from modules/auxiliary/scanner/ftp/anonymous.rb
+
+  def report_creds(user,password,realm,status,service='SIP Server')
+    # Build the result
     if status =~ /without/
       user="User=NULL,FROM=#{datastore["FROM"]},TO=#{datastore["TO"]}"
       password=nil
@@ -185,15 +181,43 @@ module Auxiliary::SIP
       end
     end
 
-    report_auth_info(
-        :host   => self.dest_addr,
-        :port   => self.dest_port,
-        :sname  => 'sip',
-        :user   => user,
-        :pass   => password,
-    )
+    # Build service information
+    service_data = {
+        address: self.dest_addr,
+        port: self.dest_port,
+        service_name: 'sip',
+        protocol: proto.downcase,
+        workspace_id: myworkspace_id,
+        info: service
+    }
+
+    # Build credential information
+    credential_data = {
+        origin_type: :service,
+        module_fullname: self.fullname,
+        private_data: password,
+        private_type: :password,
+        username: user,
+        workspace_id: myworkspace_id
+    }
+
+    credential_data.merge!(service_data)
+    credential_core = create_credential(credential_data)
+
+    # Assemble the options hash for creating the Metasploit::Credential::Login object
+    login_data = {
+        access_level: "Read-only",
+        core: credential_core,
+        last_attempted_at: DateTime.now,
+        status: Metasploit::Model::Login::Status::SUCCESSFUL,
+        workspace_id: myworkspace_id
+    }
+
+    login_data.merge!(service_data)
+    create_credential_login(login_data)
     return res
   end
+
   # Print debug output
   def printdebug(results)
     rdebug = results['rdebug']

