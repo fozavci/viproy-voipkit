@@ -48,6 +48,7 @@ class Metasploit3 < Msf::Auxiliary
             OptString.new('VENDOR',   [ true, "Vendor (GENERIC|CISCODEVICE|CISCOGENERIC|MSLYNC)", "GENERIC"]),
             OptString.new('CISCODEVICE',   [ true, "Cisco device type for authentication (585, 7940)", "7940"]),
             OptBool.new('DEBUG',   [ false, "Debug Level", false]),
+            OptBool.new('VERBOSE',   [ false, "Whether to print output for all attempts", false]),
         ], self.class)
   end
 
