@@ -130,19 +130,19 @@ class Metasploit3 < Msf::Auxiliary
     printresults(results,context)
     print_good("#{ipr}\t User: #{user} \tPassword: #{password} \tResult: #{convert_error(results["status"])}")
 
-      # Sending de-register
-      if datastore['DEREGISTER'] == true
-        #De-Registering User
-        send_register(
-            'login'  	  => datastore['LOGIN'],
-            'user'     	=> user,
-            'password'	=> password,
-            'realm'     => realm,
-            'from'    	=> from,
-            'to'    	  => to,
-            'expire'    => 0
-        )
-      end
+    # Sending de-register
+    if datastore['DEREGISTER'] == true
+      #De-Registering User
+      send_register(
+          'login'  	  => datastore['LOGIN'],
+          'user'     	=> user,
+          'password'	=> password,
+          'realm'     => realm,
+          'from'    	=> from,
+          'to'    	  => to,
+          'expire'    => 0
+      )
+    end
     else
       if results["rdata"] !=nil
         vprint_status("#{ipr}\t User: #{user} \tPassword: #{password} \tResult: #{convert_error(results["status"])}")

@@ -125,7 +125,6 @@ class Metasploit3 < Msf::Auxiliary
       rdata = results["rdata"]
       if rdata != nil and rdata['resp'] =~ possible
         user=rdata['from'].split("@")[0]
-
         if reported_users == nil or ! reported_users.include?(user)
           print_good("User #{user} is Valid (Server Response: #{rdata['resp_msg'].split(" ")[1,5].join(" ")})")
           vprint_status("Warning: #{rdata['warning']}") if rdata['warning']
