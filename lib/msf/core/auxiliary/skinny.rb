@@ -279,6 +279,8 @@ module Msf
       p << get_devicetype(device_type) #device type
       p << "\x05\x00\x00\x00"
 
+      p.force_encoding("UTF-8")
+
       if device_type.downcase == "cipc"
         # cisco ip communicator client
         p << "\x00\x00\x00\x00\x14\x00\x72\x85\x01\x00\x00\x00\x00\x00\x00\x00#{mac_to_bytes(mac)}\x00\x00\x00\x00"
@@ -602,7 +604,10 @@ module Msf
       return b
     end
     def mac_to_bytes(mac)
-      return [mac].pack('H*')
+      macb=[mac].pack('H*')
+      # fixing the compatibility::error
+      macb.gsub!(/([\x00-\x08\x0b\x0c\x0e-\x1f\x80-\xFF])/n){ |x| "\\x%.2x" % x.unpack("C*")[0] }
+      return macb
     end
     def macfileimport(f)
       print_good("MAC File is "+f.to_s+"\n")
