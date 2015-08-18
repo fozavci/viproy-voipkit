@@ -18,7 +18,7 @@ class Metasploit3 < Msf::Auxiliary
         'Version'     => '1',
         'Description' => 'Viproy Polycom Configuration Extractor Module',
         'Author'      => 'fozavci',
-        'License'     => MSF_LICENSE
+        'License'     => 'GPL'
     )
 
     register_options(
@@ -83,12 +83,12 @@ class Metasploit3 < Msf::Auxiliary
   def extract_conf_file(data)
     doc = Nokogiri::XML(data)
     file=doc.at("APPLICATION")["CONFIG_FILES"].split(",")[1]
-    vprint_debug(data) if datastore["DEBUG"] == true
+    vvprint_status(data) if datastore["DEBUG"] == true
     return file
   end
   def extract_creds(data)
     doc = Nokogiri::XML(data)
-    vprint_debug(data) if datastore["DEBUG"] == true
+    vvprint_status(data) if datastore["DEBUG"] == true
     case
       when doc.at('phone')
         d=doc.at('phone')

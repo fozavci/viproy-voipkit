@@ -14,7 +14,7 @@ class Metasploit3 < Msf::Auxiliary
       'Name'           => 'Viproy MITM Proxy for UDP',
       'Version'        => '1',
       'Description'    => 'MITM Proxy for UDP',
-      'License'        => MSF_LICENSE,
+      'License'        => 'GPL',
       'Author'         => 'fozavci',
       'References'     =>	[],
     )
@@ -112,7 +112,7 @@ class Metasploit3 < Msf::Auxiliary
           print_status("Socket : #{sock.peerhost}")
           buf,srcip,srcport = sock.recvfrom()
           srcip=sanitize_address(srcip).to_s
-          print_debug("Incoming data from #{srcip} #{srcport}") if datastore['DEBUG']
+          vprint_status("Incoming data from #{srcip} #{srcport}") if datastore['DEBUG']
           vprint_status("#{buf}")
           dispatch_request(srcip,srcport,buf)
         end

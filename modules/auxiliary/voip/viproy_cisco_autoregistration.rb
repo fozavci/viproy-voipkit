@@ -16,7 +16,7 @@ class Metasploit3 < Msf::Auxiliary
       'Version'     => '1',
       'Description' => 'Viproy Cisco auto registration analyser',
       'Author'      => 'fozavci',
-      'License'     => MSF_LICENSE
+      'License'     => 'GPL'
     )
 
     register_options(

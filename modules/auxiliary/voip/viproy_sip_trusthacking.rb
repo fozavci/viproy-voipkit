@@ -17,7 +17,7 @@ class Metasploit3 < Msf::Auxiliary
         'Version'     => '1',
         'Description' => 'Trust Analyzer for SIP Services ',
         'Author'      => 'fozavci',
-        'License'     => MSF_LICENSE
+        'License'     => 'GPL'
     )
 
     begin
@@ -102,6 +102,9 @@ class Metasploit3 < Msf::Auxiliary
         sockinfo["fromname"] = fromname
         sockinfo["src_ip"] = datastore['SRC_RHOSTS']
         sockinfo["src_port"] = datastore['SRC_RPORTS'].to_i
+
+
+
 
         if datastore['ACTION'] == 'CALL'
           send_request(sockinfo,'INVITE',nil)
@@ -189,6 +192,8 @@ class Metasploit3 < Msf::Auxiliary
     # Sending creates errors, PacketFU debug is required.
     ret = send(p.ip_daddr,p)
 
+    print_status("Result: #{ret}")
+
     if ret == :done
       vprint_status("#{p.ip_saddr}: Packet sent to #{p.ip_daddr} from #{p.udp_sport}")
     else
@@ -222,6 +227,11 @@ class Metasploit3 < Msf::Auxiliary
     if ! ( from =~ /@/ )
       from = "#{from}@#{src_ip}"
     end
+
+    if ! ( to =~ /@/ )
+      to = "#{to}@#{src_ip}"
+    end
+
     if fromname == nil
       data += "From: <sip:#{from}>\r\n"
     else

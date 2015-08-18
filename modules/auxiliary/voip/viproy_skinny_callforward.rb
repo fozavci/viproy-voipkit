@@ -18,7 +18,7 @@ class Metasploit3 < Msf::Auxiliary
       'Name'				=> 'Viproy Cisco Call Forwarding Analyser',
       'Description' => 'This module helps to test call forwarding features for Skinny',
       'Author'      => 'fozavci',
-      'License'     =>  MSF_LICENSE,
+      'License'     =>  'GPL',
     )
     register_options(
       [

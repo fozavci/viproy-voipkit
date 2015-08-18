@@ -1,6 +1,8 @@
 ##
 # This module requires Metasploit: http//metasploit.com/download
 # Current source: https://github.com/rapid7/metasploit-framework
+# Developed by Fatih Ozavci
+# Copyright 2015, Fatih Ozavci
 ##
 
 module Msf
@@ -78,7 +80,7 @@ module Msf
       configstatrecevied = false
       c=0
       while ! configstatrecevied
-        print_debug("Config status is looping") if datastore["DEBUG"] == true
+        vprint_status("Config status is looping")
         #Retrieving the response from the socket
         responses=getresponse
 
@@ -177,10 +179,10 @@ module Msf
           res = sock.get_once
           len = bytes_to_length(res[0,4])
           firstbyte=0
-          print_debug("Initial length #{len}, resource length is #{res.length}") if datastore["DEBUG"] == true
+          vprint_status("Initial length #{len}, resource length is #{res.length}")
 
           while firstbyte == 0 or (len != 0 and len+8 < res.length)
-            print_debug("Skinny length is #{len} and Data length is #{res.length}") if datastore["DEBUG"] == true
+            vprint_status("Skinny length is #{len} and Data length is #{res.length}")
             r,m,lines=skinny_parser(res[firstbyte,len+8])
             responses << [r,m,lines]
 
@@ -197,16 +199,16 @@ module Msf
               end
             end
             firstbyte=firstbyte+len+8
-            print_debug("New first byte is #{firstbyte}") if datastore["DEBUG"] == true
+            vprint_status("New first byte is #{firstbyte}")
             if ! res[firstbyte,4].nil? # or res[len,4].unpack('H*')[0] == "00000000"
-              print_debug("Extra response received: #{res[firstbyte,4]}, #{res[firstbyte,4].unpack('H*')[0]}") if datastore["DEBUG"] == true
+              vprint_status("Extra response received: #{res[firstbyte,4]}, #{res[firstbyte,4].unpack('H*')[0]}")
               len = bytes_to_length(res[firstbyte,4])
-              print_debug("First Byte: #{firstbyte}, Length #{len}") if datastore["DEBUG"] == true
+              vprint_status("First Byte: #{firstbyte}, Length #{len}")
             end
           end
-          print_debug("Multi-response loop is broken.") if datastore["DEBUG"] == true
+          vprint_status("Multi-response loop is broken.")
         end
-        print_debug("No data to read.") if datastore["DEBUG"] == true
+        vprint_status("No data to read.")
         return responses
       rescue Exception => e
         print_error("The connection disconnected, the IP phone could be trying to register back.")
@@ -227,7 +229,7 @@ module Msf
           sock.put(prep_linestatreq(i+1))
           vprint_status("Line request sent for #{i+1} of #{lines}")
 
-          print_debug("Line status is looping") if datastore["DEBUG"] == true
+          vprint_status("Line status is looping")
 
           responses=getresponse
 
@@ -303,6 +305,12 @@ module Msf
         when "7941g"
           # Cisco 7941G IP Phone
           dt = "\x73\x00\x00\x00"
+        when "7960g"
+          # Cisco 7960G IP Phone
+          dt = "\x07\x00\x00\x00"
+        when "7912g"
+          # Cisco 7912G IP Phone
+          dt = "\x37\x75\x00\x00"
         else
           # Cisco 7961G_GE IP Phone
           dt = "\x35\x01\x00\x00"
@@ -347,7 +355,7 @@ module Msf
       r = p[8,4].unpack('H*')[0]
       lines = nil
 
-      print_debug("Response reference is #{r}") if datastore["DEBUG"] == true
+      vprint_status("Response reference is #{r}")
 
       case r
         when "9d000000"

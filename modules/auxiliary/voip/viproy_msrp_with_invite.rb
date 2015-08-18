@@ -12,16 +12,24 @@ class Metasploit3 < Msf::Auxiliary
   include Msf::Auxiliary::Report
   include Msf::Auxiliary::Scanner
   include Msf::Auxiliary::SIP
+  include Msf::Auxiliary::MSRP
   include Msf::Auxiliary::AuthBrute
+  include Msf::Exploit::Remote::TcpServer
+
 
 
   def initialize
     super(
-      'Name'        => 'Viproy SIP Invite Tester',
+      'Name'        => 'Viproy MSRP Tester with SIP Invite Support',
       'Version'     => '1',
-      'Description' => 'Invite Testing Module for SIP Services',
+      'Description' => 'MSRP Testing Module for SIP Services',
       'Author'      => 'fozavci',
-      'License'     => 'GPL'
+      'License'     => 'GPL',
+      'PassiveActions' =>
+        [
+          'Service'
+        ],
+      'DefaultAction'  => 'Service'
     )
 
     deregister_options('RHOSTS','USER_AS_PASS','THREADS','DB_ALL_CREDS', 'DB_ALL_USERS', 'DB_ALL_PASS','USERPASS_FILE','PASS_FILE','PASSWORD','BLANK_PASSWORDS', 'BRUTEFORCE_SPEED','STOP_ON_SUCCESS' )
@@ -39,6 +47,12 @@ class Metasploit3 < Msf::Auxiliary
         OptString.new('FROMNAME',   [ false, "Custom Name for Message Spoofing", nil]),
         OptString.new('PROTO',   [ true, "Protocol for SIP service (UDP|TCP|TLS)", "UDP"]),
         OptBool.new('LOGIN', [false, 'Login Before Sending Message', false]),
+        OptString.new('MESSAGE_CONTENT',   [ false, "Message Content or a File Path", "Test"]),
+        OptString.new('MESSAGE_FILENAME',   [ false, "The Filename for Message Content"]),
+        OptString.new('MESSAGE_SUBJECT',   [ false, "Message Subject", "Subject"]),
+        OptString.new('MESSAGE_TYPE',   [ false, "Message Content type (text/html, text/plain, application/octet-stream)", 'text/plain']),
+        OptString.new('MSRP_TYPE',   [ false, "MSRP Content type (message/cpim, application/octet-stream)", 'message/cpim']),
+        OptPort.new('SRVPORT',    [ true, "The local MSRP port to listen on.", 55001 ]),
         Opt::RHOST,
         Opt::RPORT(5060),
 
@@ -68,6 +82,13 @@ class Metasploit3 < Msf::Auxiliary
       ], self.class)
   end
 
+  def setup
+		super
+		@clients={}
+		@count = 1
+		print_status("The service parameters set")
+  end
+
   def run
     # Login Parameters
     login = datastore['LOGIN']
@@ -86,6 +107,50 @@ class Metasploit3 < Msf::Auxiliary
     sockinfo["listen_port"] = datastore['CPORT']
     sockinfo["dest_addr"] =datastore['RHOST']
     sockinfo["dest_port"] = datastore['RPORT']
+    sockinfo["msrp_port"] = datastore['MSRPPORT']
+
+    # Message Content
+    if datastore['MESSAGE_FILENAME'].nil?
+      if datastore['MESSAGE_CONTENT'] =~ /FUZZ/
+          message = Rex::Text.pattern_create(datastore['MESSAGE_CONTENT'].split(" ")[1].to_i)
+      else
+          message = datastore['MESSAGE_CONTENT'].gsub("\\n","\r\n")
+      end
+    else
+      if datastore['MESSAGE_FILENAME'] =~ /FUZZ/
+          messagefilename = Rex::Text.pattern_create(datastore['MESSAGE_FILENAME'].split(" ")[1].to_i)
+      else
+        messagefilename = datastore['MESSAGE_FILENAME']
+      end
+      message = datastore['MESSAGE_CONTENT']
+    end
+
+    # Message Content Type
+    if datastore['MESSAGE_TYPE'] =~ /FUZZ/
+      messagetype = Rex::Text.pattern_create(datastore['MESSAGE_TYPE'].split(" ")[1].to_i)
+    else
+      messagetype = datastore['MESSAGE_TYPE'] || 'text/plain'
+    end
+
+    # Message Subject
+    if datastore['MESSAGE_SUBJECT'] =~ /FUZZ/
+      messagesubject = Rex::Text.pattern_create(datastore['MESSAGE_SUBJECT'].split(" ")[1].to_i)
+    else
+      messagesubject = datastore['MESSAGE_SUBJECT'] || 'Subject'
+    end
+
+    # MSRP Type
+    if datastore['MSRP_TYPE'] =~ /FUZZ/
+        msrptype = Rex::Text.pattern_create(datastore['MSRP_TYPE'].split(" ")[1].to_i)
+    else
+      msrptype = datastore['MSRP_TYPE'] || 'text/plain'
+    end
+
+    @msg = {
+        :msrptype => msrptype, :messagesubject => messagesubject, :messagetype => messagetype,
+        :message => message, :messagefilename => messagefilename, :size => message.length,
+        :transfer_id => Rex::Text.rand_text_numeric(9)
+    }
 
     # Dumb fuzzing for FROM, FROMNAME and TO fields
     if datastore['FROM'] =~ /FUZZ/
@@ -104,8 +169,6 @@ class Metasploit3 < Msf::Auxiliary
     else
       to = datastore['TO']
     end
-
-
 
     # DOS mode setup
     if datastore['DOS_MODE']
@@ -130,31 +193,74 @@ class Metasploit3 < Msf::Auxiliary
         fromname=nil
       end
 
+	  print_status("Starting the MSRP services")
+	  @msrpservice=framework.threads.spawn("MSRPService", false) {
+        exploit
+      }
+
+	  print_status("Sending the INVITE request with MSRP SDP content")
       datastore['DOS_COUNT'].times do
         results = send_invite(
             'login' 	      => login,
-            'loginmethod'  	=> datastore['LOGINMETHOD'].upcase,
+            'loginmethod'   => datastore['LOGINMETHOD'].upcase,
             'user'  	      => user,
             'password'	    => password,
             'realm' 	      => realm,
             'from'  	      => from,
             'fromname'  	  => fromname,
             'to'  		      => to,
+			      'sdp'			      => get_msrp_sdp(sockinfo,@msg),
         )
-
         if results != nil
           printresults(results) if datastore['DEBUG'] == true and results["rdata"] != nil
-
-          if results["rdata"]['resp'] =~ /^18|^20|^48/ and results["callopts"] != nil and results["rawdata"].to_s =~ /#{results["callopts"]["tag"]}/
-            print_good("Call: #{from} ==> #{to} is Ringing (Server Response: #{results["rdata"]['resp_msg'].split(" ")[1,5].join(" ")})")
+          if results["status"] == :succeed
+            print_good("Invite is accepted by #{to}")
+			      print_good("Received SDP Content: \n\t#{results["rdata"]["sdp"].gsub("\r\n","\r\n\t")}")
           else
-            vprint_status("Call: #{from} ==> #{to} is Failed (Server Response: #{results["rdata"]['resp_msg'].split(" ")[1,5].join(" ")})") if results["rdata"] != nil
+            print_status("Invite is not accepted by #{to} (Server Response: #{results["rdata"]['resp_msg'].split(" ")[1,5].join(" ")})") if results["rdata"] != nil
           end
         end
       end
     end
 
+	while @msrpservice.alive?
+		Rex::ThreadSafe.sleep(0.5)
+	end
+
     sipsocket_stop
   end
+
+	# Actions when clients connect
+	def on_client_connect(c)
+		@clients[c] = {
+		  :name          => "#{c.peerhost}:#{c.peerport}",
+		  :ip            => c.peerhost,
+		  :port          => c.peerport,
+		  :heartbeats    => "",
+		  :server_random => [Time.now.to_i].pack("N") + Rex::Text.rand_text(28)
+		}
+		print_status("#{@clients[c][:name]} is connected")
+	end
+
+	# Actions when clients send data 
+	def on_client_data(c)
+		data = c.get_once
+		return if not data
+		print_status("#{@clients[c][:name]} Data Received:\n\t#{data.gsub("\r\n","\r\n\t")}")
+		@clients[c][:buff] ||= ""
+		@clients[c][:buff] << data
+		@clients[c][:msrp] ||= {}
+		@clients[c] = process_request(@clients,c)
+
+		if @count > 0
+			#Sending data in loop
+			print_status("The MSRP message is preparing...")
+			msrp_content = prep_msrp_content(@clients,c, @msg)
+			print_status("Sending the MSRP message: \n\t#{msrp_content.gsub("\r\n","\r\n\t")}")
+			c.put(msrp_content)
+			@count -= 1
+		end
+	end
+
 end
 

@@ -17,9 +17,9 @@ class Metasploit3 < Msf::Auxiliary
 
   def initialize
     super(
-      'Name'        => 'Viproy SIP Invite Tester',
+      'Name'        => 'Viproy SIP Message Tester with SIP Invite Support',
       'Version'     => '1',
-      'Description' => 'Invite Testing Module for SIP Services',
+      'Description' => 'Message Testing Module for SIP Services',
       'Author'      => 'fozavci',
       'License'     => 'GPL'
     )
@@ -39,6 +39,8 @@ class Metasploit3 < Msf::Auxiliary
         OptString.new('FROMNAME',   [ false, "Custom Name for Message Spoofing", nil]),
         OptString.new('PROTO',   [ true, "Protocol for SIP service (UDP|TCP|TLS)", "UDP"]),
         OptBool.new('LOGIN', [false, 'Login Before Sending Message', false]),
+        OptString.new('MESSAGE_CONTENT',   [ false, "Message Content", "Test"]),
+        OptString.new('MSRP_TYPE',   [ false, "MSRP Content type (message/cpim, application/octet-stream)", 'message/cpim']),
         Opt::RHOST,
         Opt::RPORT(5060),
 
@@ -87,6 +89,20 @@ class Metasploit3 < Msf::Auxiliary
     sockinfo["dest_addr"] =datastore['RHOST']
     sockinfo["dest_port"] = datastore['RPORT']
 
+	  # Message Content
+    if datastore['MESSAGE_CONTENT'] =~ /FUZZ/
+      message = Rex::Text.pattern_create(datastore['MESSAGE_CONTENT'].split(" ")[1].to_i)
+    else
+      message = datastore['MESSAGE_CONTENT'].gsub("\\n","\r\n")
+    end
+
+    # Message Content
+    if datastore['MESSAGE_TYPE'] =~ /FUZZ/
+      messagetype = Rex::Text.pattern_create(datastore['MESSAGE_TYPE'].split(" ")[1].to_i)
+    else
+      messagetype = datastore['MESSAGE_TYPE'] || 'text/plain'
+    end
+
     # Dumb fuzzing for FROM, FROMNAME and TO fields
     if datastore['FROM'] =~ /FUZZ/
       from=Rex::Text.pattern_create(datastore['FROM'].split(" ")[1].to_i)
@@ -104,8 +120,6 @@ class Metasploit3 < Msf::Auxiliary
     else
       to = datastore['TO']
     end
-
-
 
     # DOS mode setup
     if datastore['DOS_MODE']
@@ -131,11 +145,14 @@ class Metasploit3 < Msf::Auxiliary
       end
 
       datastore['DOS_COUNT'].times do
+
+        print_status("Invite is accepted by #{to}")
+
         results = send_invite(
             'login' 	      => login,
-            'loginmethod'  	=> datastore['LOGINMETHOD'].upcase,
+            'loginmethod'  	  => datastore['LOGINMETHOD'].upcase,
             'user'  	      => user,
-            'password'	    => password,
+            'password'	      => password,
             'realm' 	      => realm,
             'from'  	      => from,
             'fromname'  	  => fromname,
@@ -145,10 +162,29 @@ class Metasploit3 < Msf::Auxiliary
         if results != nil
           printresults(results) if datastore['DEBUG'] == true and results["rdata"] != nil
 
-          if results["rdata"]['resp'] =~ /^18|^20|^48/ and results["callopts"] != nil and results["rawdata"].to_s =~ /#{results["callopts"]["tag"]}/
-            print_good("Call: #{from} ==> #{to} is Ringing (Server Response: #{results["rdata"]['resp_msg'].split(" ")[1,5].join(" ")})")
+          if results["status"] == :succeed
+            print_good("Invite is accepted by #{to}")
+
+            print_good("Message is sending to #{to}")
+
+            message_results = send_message(
+              'login' 	      => false,
+              'realm' 	      => realm,
+              'from'  	      => from,
+              'fromname'  	  => fromname,
+              'to'  		  => to,
+              'message'	      => message,
+              'messagetype'	  => messagetype,
+            )
+
+            if message_results != nil
+              printresults(message_results)
+            else
+              print_error("No response received for the message!")
+            end
+
           else
-            vprint_status("Call: #{from} ==> #{to} is Failed (Server Response: #{results["rdata"]['resp_msg'].split(" ")[1,5].join(" ")})") if results["rdata"] != nil
+            print_status("Message is not accepted by #{to} (Server Response: #{results["rdata"]['resp_msg'].split(" ")[1,5].join(" ")})") if results["rdata"] != nil
           end
         end
       end

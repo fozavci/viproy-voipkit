@@ -1,6 +1,8 @@
 ##
 # This module requires Metasploit: http//metasploit.com/download
 # Current source: https://github.com/rapid7/metasploit-framework
+# Developed by Fatih Ozavci
+# Copyright 2015, Fatih Ozavci
 ##
 
 
@@ -13,7 +15,7 @@ module Auxiliary::SIP
   attr_accessor :listen_addr, :listen_port, :context, :logfile, :customheaders
   attr_accessor :sock, :thread, :dest_addr, :dest_port, :proto, :vendor, :macaddress
   attr_accessor :prxclient_port, :prxclient_ip, :client_port, :client_ip, :expire
-  attr_accessor :prxserver_port, :prxserver_ip, :server_port, :server_ip
+  attr_accessor :prxserver_port, :prxserver_ip, :server_port, :server_ip, :debug
 
   include Msf::Auxiliary::Report
 
@@ -28,7 +30,10 @@ module Auxiliary::SIP
     self.dest_port = sockinfo["dest_port"].to_i || 5060
     self.proto = sockinfo["proto"].downcase
     self.expire = 3600
+    self.debug = datastore["DEBUG"] || false
+
     if vendor
+      self.vendor = sockinfo["vendor"].downcase
       self.vendor = sockinfo["vendor"].downcase
     else
       'generic'
@@ -57,7 +62,6 @@ module Auxiliary::SIP
                 'Context'   => context
             )
             self.listen_port = listen_port
-            print_debug("UDP listener initiated on #{listen_port}") if datastore["DEBUG"] == true and self.sock
             break
           rescue ::Rex::AddressInUse
             listen_port += 1
@@ -74,7 +78,6 @@ module Auxiliary::SIP
                 'Context'       => context,
             )
             self.listen_port = listen_port
-            print_debug("TCP socket connected for #{dest_addr}, local port is #{listen_port}") if datastore["DEBUG"] == true and self.sock
             break
           rescue ::Rex::AddressInUse
             listen_port += 1
@@ -93,7 +96,6 @@ module Auxiliary::SIP
                 'Context'       => context,
             )
             self.listen_port = listen_port
-            print_debug("TLS socket connected for #{dest_addr}, local port is #{listen_port}") if datastore["DEBUG"] == true  and self.sock
             break
           rescue ::Rex::AddressInUse
             listen_port += 1
@@ -125,6 +127,7 @@ module Auxiliary::SIP
     password = context["password"]
     print_req = context["print_req"] #|| true
 
+    #report =  "#{rdata['source'].split(":")[3,2].join(":")}\n\tResponse\t: #{rdata['resp_msg'].split(" ")[1,5].join(" ")}\n"
     report =  "#{rdata['source']}\n\tResponse\t: #{rdata['resp_msg'].split(" ")[1,5].join(" ")}\n"
     report << "\tServer \t\t: #{rdata['server']}\n" if rdata['server']
     report << "\tWarning \t: #{rdata['warning']}\n" if rdata['warning']
@@ -137,7 +140,7 @@ module Auxiliary::SIP
     end
     report << "\tContact\t\t: #{rdata['contact']}\n" if rdata['resp_msg'].split(" ")[1] == "301"
 
-    printdebug(results) if datastore["DEBUG"] == true
+    printdebug(results) if self.debug == true
 
     if status =~ /received|succeed/
       #reporting the service
@@ -156,11 +159,7 @@ module Auxiliary::SIP
       print_good(report) if print_req != false
     else
       report << "\tCredentials\t: User => #{user} Password => #{password}\n" if user != nil and datastore['LOGIN']
-      if method == 'REGISTER'
-        print_status(report) if print_req != false
-      else
-        vprint_status(report) if print_req != false
-      end
+      print_status(report) if print_req != false
     end
   end
 
@@ -224,14 +223,13 @@ module Auxiliary::SIP
     rdebug = results['rdebug']
     rawdata = results['rawdata']
     if rawdata != nil
-    print_debug("Raw Response for #{self.dest_addr}:\n\t#{rawdata.split("\n").join("\n\t")}")
-    rdebug.each { |r| print_debug("Irrelevant Response for #{self.dest_addr}:  #{r['resp']} #{r['resp_msg']}") }
+      print_status("Raw Response for #{self.dest_addr}:\n\t#{rawdata.split("\n").join("\n\t")}") if self.debug == true
+      rdebug.each { |r| print_status("Irrelevant Response for #{self.dest_addr}:  #{r['resp']} #{r['resp_msg']}") }
     end
-
     if self.customheaders and self.customheaders != ""
-      print_debug("Custom Headers:")
+      print_status("Custom Headers:")
       self.customheaders.split("\r\n").each {|ch|
-        print_debug("\t#{ch}")
+        print_status("\t#{ch}")
       }
     end
   end
@@ -271,6 +269,8 @@ module Auxiliary::SIP
         return "Authorization Error"
       when :decline_error
         return "Server Declined"
+      when :call_error
+        return "Call Error"
       when :protocol_error
         return "Protocol Error"
       else
@@ -284,6 +284,17 @@ module Auxiliary::SIP
   def send_register(req_options={})
     login = req_options["login"] || false
     self.expire = req_options["expire"] || 3600
+
+    #    ADDED BY CHRIS - Sometimes the first REGISTER is sent with different FROM/TO
+    #    req_options['to'] = req_options['from']
+
+    #From and TO fields should be Username for REGISTER
+    if datastore['USEREQFROM'] == true
+        req_options['from'] = req_options['user']
+        req_options['fromname'] = nil
+        req_options['to'] = req_options['user']
+    end
+    
     results=generic_request("REGISTER",req_options)
     if results["status"] == :received and results["rdata"] != nil
       case results["rdata"]["resp"]
@@ -318,7 +329,7 @@ module Auxiliary::SIP
   # Send Options
   #
   def send_options(req_options={})
-    return generic_request("OPTIONS",req_options)
+    return generic_request_withauth("OPTIONS",req_options)
   end
 
   #
@@ -326,6 +337,13 @@ module Auxiliary::SIP
   #
   def send_negotiate(req_options={})
     return generic_request("NEGOTIATE",req_options)
+  end
+
+  #
+  # Send Prack
+  #
+  def send_phrack(req_options={})
+    return generic_request("PRACK",req_options)
   end
 
   #
@@ -381,57 +399,70 @@ module Auxiliary::SIP
       results = send_register(req_options)
       reg_status = results["status"]
 
-      callopts = results["callopts"]
+      printdebug(results) if self.debug == true
+      
+      # Handling the registration results
 
-      printdebug(results) if datastore["DEBUG"] == true
+      if ! (results["status"] =~ /succeed/) or results["rdata"] == nil
+		  if results["status"] == :no_response
+		  	print_error("No response recieved for the registration attempt.") 
+		    return nil 
+		  else
+		    results["status"] = parse_rescode(results["rdata"])
+	        print_error("Registration is failed (#{convert_error(results["status"])}).")  
+	        return nil 
+	      end
+      else
+          callopts = results["callopts"]
+          req_options['callopts']=callopts if callopts != nil
 
-      req_options['callopts']=callopts if callopts != nil
-
-      # Cleaning Old Session Data
-      req_options['nonce'] = nil
-      if req_options['callopts'] != nil
-        req_options['callopts'].delete('seq')
-        req_options['callopts'].delete('callid')
-        req_options['callopts'].delete('tag')
+	      # Cleaning Old Session Data
+	      req_options['nonce'] = nil
+	      if req_options['callopts'] != nil
+	        req_options['callopts'].delete('seq')
+	        req_options['callopts'].delete('callid')
+	        req_options['callopts'].delete('tag')
+	      end
+	      req_options.delete('digest')
       end
+            
     end
 
     req_options["from"]=from
     req_options["fromname"]=fromname
     req_options["to"]=to
 
-    print_debug("No authentication performed.") if datastore['DEBUG']
 
-    if method == "MESSAGE" and datastore["DOS_COUNT"]
-      datastore["DOS_COUNT"].times {
-        results=generic_request(method,req_options)
-      }
-      print_debug("Request packet sent.") if datastore['DEBUG']
-    else
-      results=generic_request(method,req_options)
-      print_debug("Request packet sent.") if datastore['DEBUG']
-    end
+    results=generic_request(method,req_options)
+    vprint_status("Request packet sent.") if self.debug == true
 
-    if results["rawdata"].nil?
-      print_error("No response received!")
-      return
-    else
-      printdebug(results) if datastore["DEBUG"] == true
-    end
+    vprint_status("No response received!") if results["rawdata"].nil?
+
+    # Removing the double responses
+    #    if results["rawdata"].nil?
+    #      vprint_status("No response received!")
+    #      return
+    #    else
+    #      printdebug(results) if self.debug == true
+    #    end
 
     if results["status"] == :received and results["rdata"] != nil
       results["status"] = parse_rescode(results["rdata"])
       case results["status"]
         when :cred_required
           if login
-            ack_options=req_options.clone
-            ack_options['callopts']=results["callopts"].clone
-            ack_options['callopts'].delete('seq')
-            send_ack(ack_options) if method == "INVITE"
+            if method == "INVITE"
+              ack_options=req_options.clone
+              ack_options['callopts']=results["callopts"].clone
+              ack_options['callopts']["uri"] = results["rdata"]["contact"]
+              ack_options['callopts']["totag"] = results["rdata"]["totag"]
+              ack_options['callopts']["cseq"] = results["rdata"]["cseq"]
+              send_ack(ack_options)
+            end
 
             results=auth(method,req_options,results)
 
-            printdebug(results) if datastore["DEBUG"] == true
+            printdebug(results) if self.debug == true
 
             if :received and results["rdata"] != nil
               results["status"] = parse_rescode(results["rdata"])
@@ -440,19 +471,45 @@ module Auxiliary::SIP
               results["status"] = :protocol_error
             end
           end
-        when :succeed
+
+        when :ringing
+          #Prack is sending
+          prack_options=req_options.clone
+          prack_options['callopts']=results["callopts"].clone
+          prack_options['callopts']["callid"] = results["rdata"]["callid"]
+          prack_options['callopts']["uri"] = results["rdata"]["contact"]
+          prack_options['callopts']["totag"] = results["rdata"]["totag"]
+          prack_options['callopts']["cseq"] = results["rdata"]["cseq"]
+          results=send_phrack(prack_options)
+
+          if results["status"] == :received and results["rdata"] != nil
+            case results["rdata"]["resp"]
+            when "200"
+              ack_options=req_options.clone
+              ack_options['callopts']=results["callopts"].clone
+              ack_options['callopts']["callid"] = results["rdata"]["callid"]
+              ack_options['callopts']["uri"] = results["rdata"]["contact"]
+              ack_options['callopts']["totag"] = results["rdata"]["totag"]
+              ack_options['callopts']["cseq"] = results["rdata"]["cseq"]
+              ack_results=send_ack(ack_options)
+              results["status"] = :succeed
+            else
+              print_status("Call Initiation Error: #{results["rdata"]["resp"]}:#{results["rdata"]["resp_msg"]}")
+            end
+          end
+
+          #reporting successful ringing
           results["status"] = :succeed_withoutlogin if reg_status != :succeed and results["status"] == :succeed
-        else
-          results["status"] = :protocol_error
+		    when :succeed
+          results["status"] = :succeed_withoutlogin if reg_status != :succeed and results["status"] == :succeed
+      else
+        results["status"] = :protocol_error
       end
     end
 
     results["callopts"] = req_options["callopts"]
     return results
   end
-
-
-
 
 
 
@@ -539,13 +596,6 @@ module Auxiliary::SIP
     #Cisco generic Register methods requests same FROM and TO fields
     if self.vendor == "ciscogeneric" and method == 'REGISTER'
       req_options['to'] = req_options['from']
-    else
-      #From and TO fields should be Username for REGISTER
-      if datastore['USEREQFROM'] == true and method == 'REGISTER'
-        req_options['from'] = req_options['user']
-        req_options['fromname'] = nil
-        req_options['to'] = req_options['user']
-      end
     end
 
     initmslync = results["initmslync"] || false
@@ -585,8 +635,8 @@ module Auxiliary::SIP
         results["status"] = :succeed
       when "/^183/"
         results["status"] = :trying
-      when "/^18/"
-        results["status"] = :succeed
+      when "/^180/"
+        results["status"] = :ringing
       when /^40/
         results["status"] = :failed
       when "415"
@@ -603,11 +653,11 @@ module Auxiliary::SIP
   #
   # Receive Data
   #
-  def recv_data
+  def recv_data(timeout=3)
     begin
       case self.proto
         when 'udp'
-          r = self.sock.recvfrom(65535, 3)
+          r = self.sock.recvfrom(65535, timeout)
         when 'tcp'
           r = self.sock.get_once(-1, 5)
         when 'tls'
@@ -629,13 +679,19 @@ module Auxiliary::SIP
   # Response Check
   #
   def resp_get(method,rdebug=[])
-    possible= /^18|^20|^30|^40|415|503|^48|^60|^50/
+    possible= /^180|^20|^30|^40|415|503|^48|^60|^50/
     rdata,rawdata=recv_data
     rdebug << rdata
 
-    while (rdata != nil and !(rdata['resp'] =~ possible))
-      rdata,rawdata=recv_data
-      vprint_status("Nonce: #{rdata["digest"]["nonce"]}") if datastore["DELAY"] != "0" and rdata != nil and rdata["digest"] != nil
+    if method == "PRACK" or method == "ACK"
+      timeout = 20
+    else
+      timeout = 3
+    end
+
+    while ( (rdata != nil and !(rdata['resp'] =~ possible) ) or (method == "PRACK" and rdata != nil and rdata["sdp"].nil?))
+      rdata,rawdata=recv_data(timeout)
+      #vprint_status("Nonce: #{rdata["digest"]["nonce"]}") if datastore["DELAY"] != "0" and rdata != nil and rdata["digest"] != nil
       break if rdebug.length > 9
     end
 
@@ -644,15 +700,16 @@ module Auxiliary::SIP
         "rdebug" => rdebug,
         "rawdata" => rawdata
     }
-
+    
     return results
   end
+
 
   #
   # Nonce Calculation
   #
   def auth_calc(digestopts)
-    cnonce=Rex::Text.rand_text_alphanumeric(10)
+    cnonce=Rex::Text.rand_text_alphanumeric(50)
     nc="00000001"
 
     case digestopts['algorithm']
@@ -660,6 +717,8 @@ module Auxiliary::SIP
         h1 = Digest::MD5.hexdigest("#{digestopts['username']}:#{digestopts['realm']}:#{digestopts['password']}")
         hash1 = Digest::MD5.hexdigest("#{h1}:#{digestopts['nonce']}:#{cnonce}")
       when 'MD5'
+        hash1 = Digest::MD5.hexdigest("#{digestopts['username']}:#{digestopts['realm']}:#{digestopts['password']}")
+      when nil
         hash1 = Digest::MD5.hexdigest("#{digestopts['username']}:#{digestopts['realm']}:#{digestopts['password']}")
     else
       print_error("ERROR 1: UNKNOWN ALGORITHM REQUESTED IN THE AUTHENTICATION")
@@ -671,7 +730,7 @@ module Auxiliary::SIP
       when "auth"
         hash2 = Digest::MD5.hexdigest("#{digestopts['req_type']}:#{digestopts['uri']}")
         response=Digest::MD5.hexdigest("#{hash1}:#{digestopts['nonce']}:#{nc}:#{cnonce}:#{digestopts['qop']}:#{hash2}")
-      when "auth-in"
+      when "auth-int"
         # HA2=MD5(method:digestURI:MD5(entityBody))
         print_error("ERROR 2: ONLY AUTH-INT REQUESTED IN THE AUTHENTICATION")
         return
@@ -680,18 +739,24 @@ module Auxiliary::SIP
         response=Digest::MD5.hexdigest("#{hash1}:#{digestopts['nonce']}:#{hash2}")
     end
 
+    #    #REALM_FOR_AUTH fix BY CHRIS
+    #    if datastore["REALM_FOR_AUTH"] == true
+    #      authdata = "username=\"#{digestopts['username']}@#{digestopts['realm']}\", realm=\"#{digestopts['realm']}\", nonce=\"#{digestopts['nonce']}\", uri=\"#{digestopts['uri']}\", response=\"#{response}\""
+    #    else
+    #      authdata = "username=\"#{digestopts['username']}\", realm=\"#{digestopts['realm']}\", nonce=\"#{digestopts['nonce']}\", uri=\"#{digestopts['uri']}\", response=\"#{response}\""
+    #    end
 
     authdata = "username=\"#{digestopts['username']}\", realm=\"#{digestopts['realm']}\", nonce=\"#{digestopts['nonce']}\", uri=\"#{digestopts['uri']}\", response=\"#{response}\""
     if digestopts['algorithm']
       authdata << ", algorithm=#{digestopts['algorithm']}"
     else
-      authdata << ", algorithm=MD5"
+      #authdata << ", algorithm=MD5"
     end
 
 
     #There could be a bug here. This will be tested for the multiple QOP options.
     #authdata << ", qop=#{digestopts['qop']}, nc=#{nc}" if digestopts['qop'] =~ /auth/
-    authdata << ", cnonce=\"#{cnonce}\", qop=\"auth\", nc=\"#{nc}\"" if digestopts['algorithm'] == "MD5-sess" or digestopts['qop'] == "auth"
+    authdata << ", cnonce=\"#{cnonce}\", qop=auth, nc=#{nc}" if digestopts['algorithm'] == "MD5-sess" or digestopts['qop'] == "auth"
 
     return authdata
 
@@ -703,9 +768,7 @@ module Auxiliary::SIP
   #
   def send_data(req_type,req_options)
     data,callopts = create_req(req_type,req_options)
-    if datastore["DEBUG"] == true
-      print_debug("Raw Request for #{dest_addr}:\n\t#{data.split("\n").join("\n\t")}")
-    end
+    print_status("Raw Request for #{dest_addr}:\n\t#{data.split("\n").join("\n\t")}") if self.debug == true
 
     begin
       case self.proto
@@ -759,7 +822,14 @@ module Auxiliary::SIP
     to=req_options['to'] || user
     password=req_options['password'] || nil
     callopts=req_options['callopts'] || {}
-    seq=callopts['seq'].to_i+1 || 1
+    
+    if callopts['seq'].nil?
+      seq = 13100
+    else
+      seq = callopts['seq'].to_i+1
+    end
+
+	  cseq = callopts['cseq'] || 1 # CSeq received for ACK and PRACK
     callid=callopts['callid'] || "call#{Rex::Text.rand_text_alphanumeric(30)}"
     tag= callopts['tag'] || "#{Rex::Text.rand_text_alphanumeric(10)}"
     if vendor == "mslync"
@@ -771,20 +841,31 @@ module Auxiliary::SIP
     branch=callopts['branch'] || "branch#{Rex::Text.rand_text_alphanumeric(10)}"
     msopaque=callopts['msopaque'] || "#{Rex::Text.rand_text_alphanumeric(12)}"
 
+
+    # It depends on the server reqirements
+    # Custom URI variable should be defined to fix this problem
+    # Adjust the URI fields for multiple sample servers
     case req_type
       when 'SUBSCRIBE'
-        uri="sip:#{to}@#{realm}"
+        uri="sip:#{realm}"
       when 'INVITE'
         uri="sip:#{to}@#{realm}"
       when 'MESSAGE'
         uri="sip:#{to}@#{realm}"
       when 'OPTIONS'
-        #uri="sip:#{to}@#{realm}"
-        uri="sip:#{realm}"
+        if req_options['proxyscan']
+        	uri="sip:#{req_options['targeturi']}"
+        else
+          uri="sip:#{realm}"
+        end
       when 'NEGOTIATE'
         uri="sip:#{dest_addr}:#{dest_port}"
-      else
-        uri="sip:#{realm}"
+      when 'PRACK'
+      uri="#{callopts["uri"]}"
+      when 'ACK'
+      uri="#{callopts["uri"]}"
+    else
+      uri="sip:#{realm}"
     end
 
     branchstr=";rport;branch=#{branch}" if self.vendor != "mslync" #if req_type != "NEGOTIATE"
@@ -802,25 +883,42 @@ module Auxiliary::SIP
       data << "To: <sip:#{dest_addr}:#{dest_port}>\r\n"
     else
       if from =~ /@/
-        data << "From: <sip:#{from}>;tag=#{tag};epid=#{epid}\r\n"
+        fr = "From: <sip:#{from}>;tag=#{tag}\r\n"
       elsif fromname != nil
-        data << "From: \"#{fromname}\" <sip:#{from}@#{realm}>;tag=#{tag};epid=#{epid}\r\n"
+        fr = "From: \"#{fromname}\"<sip:#{from}@#{realm}>;tag=#{tag}\r\n"
       else
-        data << "From: <sip:#{from}@#{realm}>;tag=#{tag};epid=#{epid}\r\n"
+        fr = "From: <sip:#{from}@#{realm}>;tag=#{tag}\r\n"
       end
-      data << "To: <sip:#{to}@#{realm}>\r\n"
+      
+      fr.gsub!("\r\n",";epid=#{epid}\r\n") if vendor == "mslync"
+      
+      data << fr
+      
+      to = "#{to}@#{realm}" if ! (to =~ /@/)
+
+	  if req_type == "PRACK" or req_type == "ACK"
+	  	data << "To: <sip:#{to}>;#{callopts["totag"]}\r\n"
+	  else
+	  	data << "To: <sip:#{to}>\r\n"
+	  end
+
     end
 
-    if self.vendor == 'mslync' or req_type == "OPTIONS"
+    if self.vendor == 'mslync' or req_type == "OPTIONS" or req_type == "PRACK" or req_type == "ACK"
       data << "Call-ID: #{callid}\r\n"
     else
       data << "Call-ID: #{callid}@#{self.listen_addr}\r\n"
     end
 
-    if req_type == "OPTIONS"
-      data << "CSeq: 1234 #{req_type}\r\n"
+    case req_type 
+		when "OPTIONS"
+      		data << "CSeq: 3452345 #{req_type}\r\n"
+		when "ACK"
+      		data << "CSeq: #{cseq} #{req_type}\r\n"
+		when "PRACK"
+      		data << "CSeq: #{cseq.to_i+1} #{req_type}\r\n"
     else
-      data << "CSeq: #{seq} #{req_type}\r\n"
+      	data << "CSeq: #{seq} #{req_type}\r\n"
     end
 
 
@@ -886,19 +984,29 @@ module Auxiliary::SIP
       }
     end
 
-    if req_type == 'SUBSCRIBE'
-      if req_options['subscribetype'] == "presence"
-        data << "Event: presence\r\n"
-        data << "Accept: application/pidf+xml, application/xpidf+xml\r\n"
-      else
-        data << "Event: message-summary\r\n"
-        data << "Accept: application/simple-message-summary\r\n"
-      end
+    case req_type 
+      when 'SUBSCRIBE'
+        case req_options['subscribetype']
+          when "presence"
+            data << "Event: presence\r\n"
+            data << "Accept: application/pidf+xml, application/xpidf+xml\r\n"
+          when "message"
+            data << "Event: message-summary\r\n"
+            data << "Accept: application/simple-message-summary\r\n"
+          when nil
+            data << "Event: message-summary\r\n"
+            data << "Accept: application/simple-message-summary\r\n"
+        else
+          data << "Event: #{req_options['subscribetype']}\r\n"
+          data << "Accept: application/simple-message-summary\r\n"
+        end
+      when 'PRACK'
+        # No Accept header required
     else
       data << "Accept: application/sdp\r\n"
     end
 
-    data << "Compression: LZ77-8K\r\n" if req_type == "NEGOTIATE"
+    data << "Compression: LZ77-8K\r\n" if req_type == "NEGOTIATE" 
 
     case
       when req_options['initmslync']
@@ -921,30 +1029,39 @@ module Auxiliary::SIP
         data << "Authorization: NTLM #{authdata}\r\n"
     end
 
+	if req_type == "PRACK"
+		data << "RAck: 1 #{cseq} INVITE\r\n"
+	end
+
     case req_type
       when 'INVITE'
-        sdp_ID=Rex::Text.rand_text_numeric(9)
-        s="Source"
+        if req_options["sdp"]
+        	idata = req_options["sdp"]
+        else
+	        sdp_ID=Rex::Text.rand_text_numeric(9)
+	        s="Source"
 
-        idata = "v=0\r\n"
-        idata << "o=Cisco-SIPUA #{sdp_ID} #{sdp_ID} IN IP4 #{self.listen_addr}\r\n"
-        idata << "s=#{s}\r\n"
-        idata << "t=0 0\r\n"
-        idata << "m=audio 16392 RTP/AVP 0 8 18 102 9 116 101\r\n"
-        idata << "c=IN IP4 #{self.listen_addr}\r\n"
-        idata << "a=rtpmap:3 GSM/8000"
-        idata << "a=rtpmap:0 PCMU/8000\r\n"
-        idata << "a=rtpmap:8 PCMA/8000\r\n"
-        idata << "a=rtpmap:18 G729/8000\r\n"
-        idata << "a=fmtp:18 annexb=no\r\n"
-        idata << "a=rtpmap:102 L16/16000\r\n"
-        idata << "a=rtpmap:9 G722/8000\r\n"
-        idata << "a=rtpmap:116 iLBC/8000\r\n"
-        idata << "a=fmtp:116 mode=20\r\n"
-        idata << "a=rtpmap:101 telephone-event/8000\r\n"
-        idata << "a=fmtp:101 0-15\r\n"
-        idata << "a=sendrecv\r\n"
-        idata << "\r\n"
+	 		#Generic SDP Content 
+	        idata = "v=0\r\n"
+	        idata << "o=+8675530000005-jitsi.org 0 0 IN IP4 #{self.listen_addr}\r\n"
+	        idata << "s=-\r\n"
+	        idata << "c=IN IP4 #{self.listen_addr}\r\n"
+	        idata << "t=0 0\r\n"
+	        idata << "m=audio 16392 RTP/AVP 0\r\n"
+	        idata << "a=rtpmap:0 PCMU/8000\r\n"
+	        idata << "a=extmap:1 urn:ietf:params:rtp-hdrext:csrc-audio-level\r\n"
+	        idata << "a=extmap:2 urn:ietf:params:rtp-hdrext:ssrc-audio-level\r\n"
+	        idata << "a=rtcp-xr:voip-metrics\r\n"
+	        idata << "m=video 16393 RTP/AVP 96 99\r\n"
+	        idata << "a=recvonly\r\n"
+	        idata << "a=rtpmap:96 H264/90000\r\n"
+	        idata << "a=fmtp:96 profile-level-id=4DE01f;packetization-mode=1\r\n"
+	        idata << "a=imageattr:96 send * recv [x=[0-1366],y=[0-768]]\r\n"
+	        idata << "a=rtpmap:99 H264/90000\r\n"
+	        idata << "a=fmtp:99 profile-level-id=4DE01f\r\n"
+	        idata << "a=imageattr:99 send * recv [x=[0-1366],y=[0-768]]\r\n"
+	        idata << "\r\n"
+        end
 
         data << "Content-Type: application/sdp\r\n"
         data << "Content-Length: #{idata.length}\r\n\r\n"
@@ -955,6 +1072,9 @@ module Auxiliary::SIP
         data << "Content-Type: #{messagetype}\r\n"
         data << "Content-Length: #{idata.length}\r\n\r\n"
         data << idata
+	  when 'PRACK'
+		#No Content-Length required
+		data << "\r\n"
       else
         data << "Content-Length: 0\r\n\r\n"
     end
@@ -997,7 +1117,6 @@ module Auxiliary::SIP
 
       if (pid =~ /FUZZ\s*+(.*)$/i)
         count=$1.split("|")[0]
-        print_status("Count: #{count}")
         fuzz=fromname=Rex::Text.pattern_create(count.to_i)
         pid=pid.gsub!("FUZZ #{count}",fuzz)
       end
@@ -1016,6 +1135,7 @@ module Auxiliary::SIP
   end
 
   #There is a Bug in this function for WWW-Authentication !!!!!
+  #We're trying to fuck this function, I hope it works for the Proxy :)
   # Parse the authentication
   def parse_auth(data)
     result={}
@@ -1024,7 +1144,7 @@ module Auxiliary::SIP
     quote = 0
     data.each_char { |c|
       quote += 1 if c == '"'
-      if c == "="
+      if c == "=" and quote % 2 == 0
         var = str.gsub(" ","")
         val = nil
         str = ""
@@ -1042,9 +1162,9 @@ module Auxiliary::SIP
         end
       end
     }
+    result.delete(nil)
     return result
   end
-
 
   #
   # Parse Response
@@ -1056,7 +1176,7 @@ module Auxiliary::SIP
       when 'udp'
         return if not pkt[1]
         rawdata=pkt[0]
-        rdata["source"] = "#{pkt[1]}:#{pkt[2]}"
+        rdata["source"] = "#{pkt[1].gsub("::ffff:","")}:#{pkt[2]}"
       when 'tcp'
         rawdata=pkt
         rdata["source"] = "#{dest_addr}:#{dest_port}"
@@ -1088,14 +1208,18 @@ module Auxiliary::SIP
       rdata["proxy"] = "#{$1.strip}"
     end
 
+    # Multiline authentication header support (whitespace char is \s)
+    # if(rawdata =~ /^WWW-Authenticate:\s*(.*\s*nonce.*)$/i)
     if(rawdata =~ /^WWW-Authenticate:\s*(.*)$/i)
       header=$1
       t=header.split(" ")[0]
       type=t.downcase
       data="#{header.strip.gsub("#{t} ","")}"
+      # data="#{data.strip.gsub(/\s/,"")}" #Removing the whitespace from the data
       rdata[type] = parse_auth(data)
       rdata[type]["authtype"]="www"
     end
+    
     if(rawdata =~ /^Proxy-Authenticate:\s*(.*)$/i)
       header=$1
       t=header.split(" ")[0]
@@ -1107,11 +1231,26 @@ module Auxiliary::SIP
     if(rawdata =~ /^From:\s+(.*)$/)
       rdata["from"] = "#{$1.strip.split(";")[0].gsub("<sip:","").gsub(">","")}"
     end
+    if(rawdata =~ /^Call-ID:\s+(.*)$/)
+      rdata["callid"] = "#{$1.strip}"
+    end
+    if(rawdata =~ /^CSeq:\s+(.*)$/)
+      rdata["cseq"] = "#{$1.strip.split(" ")[0]}"
+    end
     if(rawdata =~ /^To:\s+(.*)$/)
       rdata["to"] = "#{$1.strip.split(";")[0].gsub("<sip:","").gsub(">","")}"
     end
+    if(rawdata =~ /^To:\s+(.*)$/)
+      rdata["totag"] = "#{$1.strip.split(";")[1]}"
+    end
     if(rawdata =~ /^Contact:\s+(.*)$/)
       rdata["contact"] = "#{$1.strip.gsub(/[<|>]/,"")}"
+    end
+    if(rawdata =~ /^Content-Length:\s+(.*)$/)
+      rdata["contentlength"] = "#{$1.strip}"
+	  if rdata["contentlength"].to_i > 0
+		rdata["sdp"]=rawdata.split("\r\n\r\n")[1]
+	  end
     end
     return rdata,rawdata
   end

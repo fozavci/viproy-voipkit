@@ -19,7 +19,7 @@ class Metasploit3 < Msf::Auxiliary
         'Version'     => '1',
         'Description' => 'Brute Force Module for SIP Services',
         'Author'      => 'fozavci',
-        'License'     => MSF_LICENSE
+        'License'     => 'GPL'
     )
 
     register_options(
@@ -42,6 +42,7 @@ class Metasploit3 < Msf::Auxiliary
             OptString.new('METHOD',   [ true, "The method for Brute Forcing (REGISTER)", "REGISTER"]),
             OptBool.new('DEREGISTER', [true, 'De-Register After Successful Login', false]),
             OptString.new('REALM',   [ false, "The login realm to probe at each host", nil]),
+            OptBool.new('REALMFORAUTH',   [ false, "Use the same realm for authorisation"]),
             OptString.new('TO',   [ false, "The destination username to probe", "1000"]),
             OptString.new('FROM',   [ false, "The source username to probe", "1000"]),
             OptString.new('MACADDRESS',   [ false, "MAC Address for Vendor", "000000000000"]),
@@ -102,6 +103,8 @@ class Metasploit3 < Msf::Auxiliary
   def do_login(user,password,from,to,dest_addr,method)
 
     realm = datastore['REALM']
+    user = "#{user}@#{realm}" if datastore['REALMFORAUTH'] == true
+    
     Rex.sleep(datastore['DELAY'].to_i)
 
     results = send_register(

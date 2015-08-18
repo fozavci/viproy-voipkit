@@ -18,10 +18,10 @@ class Metasploit3 < Msf::Auxiliary
       'Version'     => '1',
       'Description' => 'Subscribe Discovery Module for SIP Services',
       'Author'      => 'fozavci',
-      'License'     => MSF_LICENSE
+      'License'     => 'GPL'
     )
 
-    deregister_options('USER_AS_PASS', 'USERPASS_FILE','PASS_FILE','PASSWORD','BLANK_PASSWORDS', 'BRUTEFORCE_SPEED','STOP_ON_SUCCESS' )
+    deregister_options('USER_AS_PASS', 'USERPASS_FILE','PASS_FILE','PASSWORD','BLANK_PASSWORDS', 'BRUTEFORCE_SPEED','STOP_ON_SUCCESS', 'CPORT' )
 
     register_options(
         [
@@ -38,7 +38,6 @@ class Metasploit3 < Msf::Auxiliary
     register_advanced_options(
         [
             Opt::CHOST,
-            Opt::CPORT(5060),
             OptString.new('USERAGENT',   [ false, "SIP user agent" ]),
             OptString.new('SUBSCRIBETYPE',   [ false, "Subscribe message type (presence,message)", 'message']),
             OptString.new('REALM',   [ false, "The login realm to probe at each host", nil]),
@@ -51,6 +50,7 @@ class Metasploit3 < Msf::Auxiliary
             OptString.new('Route', [false, 'Proxy Route. Sample: <sip:100@RHOST:RPORT;lr>', nil]),
             OptString.new('MACADDRESS',   [ false, "MAC Address for Vendor", "000000000000"]),
             OptString.new('VENDOR',   [ true, "Vendor (GENERIC|CISCODEVICE|CISCOGENERIC|MSLYNC)", "GENERIC"]),
+            OptBool.new('USEREQFROM',   [ false, "FROM will be cloned from USERNAME", true]),
             OptBool.new('DEBUG',   [ false, "Debug Level", false]),
         ], self.class)
   end
@@ -112,6 +112,8 @@ class Metasploit3 < Msf::Auxiliary
         fromname=nil
       end
 
+	  #Sample Subscribe Events: CCBS,CCNR,Ua-Profile,Conference
+
       results = send_subscribe(
           'login' 	      => login,
           'loginmethod'  	=> datastore['LOGINMETHOD'],
@@ -124,21 +126,23 @@ class Metasploit3 < Msf::Auxiliary
           'to'  		      => to,
           'customheader'	=> customheader,
       )
+      if ! results.nil?
 
-      printresults(results) if datastore['DEBUG'] == true
+	      printresults(results) if datastore['DEBUG'] == true
 
-      rdata = results["rdata"]
+	      rdata = results["rdata"]
 
-      if rdata != nil and rdata['resp'] =~ /^18|^20|^48/ and results["rawdata"].to_s =~ /#{results["callopts"]["tag"]}/
-        print_good("Message: #{from} ==> #{to} Subscribe Sent (Server Response: #{rdata['resp_msg'].split(" ")[1,5].join(" ")})")
-      else
-        vprint_status("Message: #{from} ==> #{to} Subscription Failed (Server Response: #{rdata['resp_msg'].split(" ")[1,5].join(" ")})") if rdata != nil
-      end
+	      if rdata != nil and rdata['resp'] =~ /^18|^20/ 
+	        print_good("Message: #{from} ==> #{to} Subscribe Sent (Server Response: #{rdata['resp_msg'].split(" ")[1,5].join(" ")})")
+	      else
+	        print_status("Message: #{from} ==> #{to} Subscription Failed (Server Response: #{rdata['resp_msg'].split(" ")[1,5].join(" ")})") if rdata != nil
+	      end
 
-      if customheader != ""
-        vprint_status("Custom Headers")
-        vprint_status(customheader)
-      end
+	      if customheader != ""
+	        vprint_status("Custom Headers")
+	        vprint_status(customheader)
+	      end
+      end    
 
       sipsocket_stop
     }

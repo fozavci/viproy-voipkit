@@ -12,16 +12,24 @@ class Metasploit3 < Msf::Auxiliary
   include Msf::Auxiliary::Report
   include Msf::Auxiliary::Scanner
   include Msf::Auxiliary::SIP
+  include Msf::Auxiliary::MSRP
   include Msf::Auxiliary::AuthBrute
+  include Msf::Exploit::Remote::TcpServer
+
 
 
   def initialize
     super(
-      'Name'        => 'Viproy SIP Invite Tester',
+      'Name'        => 'Viproy MSRP Fuzzer with SIP Invite Support',
       'Version'     => '1',
-      'Description' => 'Invite Testing Module for SIP Services',
+      'Description' => 'MSRP Fuzzing Module for SIP Services',
       'Author'      => 'fozavci',
-      'License'     => 'GPL'
+      'License'     => 'GPL',
+      'PassiveActions' =>
+        [
+          'Service'
+        ],
+      'DefaultAction'  => 'Service'
     )
 
     deregister_options('RHOSTS','USER_AS_PASS','THREADS','DB_ALL_CREDS', 'DB_ALL_USERS', 'DB_ALL_PASS','USERPASS_FILE','PASS_FILE','PASSWORD','BLANK_PASSWORDS', 'BRUTEFORCE_SPEED','STOP_ON_SUCCESS' )
@@ -39,9 +47,11 @@ class Metasploit3 < Msf::Auxiliary
         OptString.new('FROMNAME',   [ false, "Custom Name for Message Spoofing", nil]),
         OptString.new('PROTO',   [ true, "Protocol for SIP service (UDP|TCP|TLS)", "UDP"]),
         OptBool.new('LOGIN', [false, 'Login Before Sending Message', false]),
+        OptString.new('MESSAGE_CONTENT',   [ false, "Message Content", nil]),
+        OptString.new('MESSAGE_TYPE',   [ false, "Message Content type (text/html, text/plain)", 'text/plain']),
+        OptPort.new('SRVPORT',    [ true, "The local MSRP port to listen on.", 55001 ]),
         Opt::RHOST,
         Opt::RPORT(5060),
-
       ], self.class)
 
     register_advanced_options(
@@ -64,8 +74,15 @@ class Metasploit3 < Msf::Auxiliary
         OptString.new('VENDOR',   [ true, "Vendor (GENERIC|CISCODEVICE|CISCOGENERIC|MSLYNC)", "GENERIC"]),
         OptString.new('CISCODEVICE',   [ true, "Cisco device type for authentication (585, 7940)", "7940"]),
         OptBool.new('USEREQFROM',   [ false, "FROM will be cloned from USERNAME", true]),
-
       ], self.class)
+  end
+
+  def setup
+		super
+		@clients={}
+		@fuzzingtarget = nil
+		@fuzzingstatus = nil
+		print_status("The service parameters set")
   end
 
   def run
@@ -86,6 +103,21 @@ class Metasploit3 < Msf::Auxiliary
     sockinfo["listen_port"] = datastore['CPORT']
     sockinfo["dest_addr"] =datastore['RHOST']
     sockinfo["dest_port"] = datastore['RPORT']
+    sockinfo["msrp_port"] = datastore['MSRPPORT']
+
+    # Message Content
+    if datastore['MESSAGE_CONTENT'] =~ /FUZZ/
+      message = Rex::Text.pattern_create(datastore['MESSAGE_CONTENT'].split(" ")[1].to_i)
+    else
+      message = datastore['MESSAGE_CONTENT'].gsub("\\n","\r\n")
+    end
+
+    # Message Content
+    if datastore['MESSAGE_TYPE'] =~ /FUZZ/
+      messagetype = Rex::Text.pattern_create(datastore['MESSAGE_TYPE'].split(" ")[1].to_i)
+    else
+      messagetype = datastore['MESSAGE_TYPE'] || 'text/plain'
+    end
 
     # Dumb fuzzing for FROM, FROMNAME and TO fields
     if datastore['FROM'] =~ /FUZZ/
@@ -104,8 +136,6 @@ class Metasploit3 < Msf::Auxiliary
     else
       to = datastore['TO']
     end
-
-
 
     # DOS mode setup
     if datastore['DOS_MODE']
@@ -130,31 +160,73 @@ class Metasploit3 < Msf::Auxiliary
         fromname=nil
       end
 
+	  print_status("Starting the MSRP services")
+	  @msrpservice=framework.threads.spawn("MSRPService", false) {
+        exploit
+      }
+
+	  print_status("Sending the INVITE request with MSRP SDP content")
       datastore['DOS_COUNT'].times do
         results = send_invite(
             'login' 	      => login,
-            'loginmethod'  	=> datastore['LOGINMETHOD'].upcase,
+            'loginmethod'  	  => datastore['LOGINMETHOD'].upcase,
             'user'  	      => user,
-            'password'	    => password,
+            'password'	      => password,
             'realm' 	      => realm,
             'from'  	      => from,
             'fromname'  	  => fromname,
             'to'  		      => to,
+			      'sdp'			  => get_msrp_sdp(sockinfo),
         )
 
         if results != nil
           printresults(results) if datastore['DEBUG'] == true and results["rdata"] != nil
 
-          if results["rdata"]['resp'] =~ /^18|^20|^48/ and results["callopts"] != nil and results["rawdata"].to_s =~ /#{results["callopts"]["tag"]}/
-            print_good("Call: #{from} ==> #{to} is Ringing (Server Response: #{results["rdata"]['resp_msg'].split(" ")[1,5].join(" ")})")
+          if results["status"] == :succeed
+            print_good("Invite is accepted by #{to}")
+			      print_good("Received SDP Content: #{results["rdata"]["sdp"].gsub("\r\n","\t\r\n")}")
           else
-            vprint_status("Call: #{from} ==> #{to} is Failed (Server Response: #{results["rdata"]['resp_msg'].split(" ")[1,5].join(" ")})") if results["rdata"] != nil
+            print_status("Invite is not accepted by #{to} (Server Response: #{results["rdata"]['resp_msg'].split(" ")[1,5].join(" ")})") if results["rdata"] != nil
           end
         end
       end
     end
 
+    while @msrpservice.alive?
+      while @fuzzingtarget.nil?
+        Rex::ThreadSafe.sleep(0.5)
+      end
+      @fuzzingstatus = start_fuzzing(@fuzzingtarget,@fuzzingstatus) if @fuzzingstatus.nil?
+    end
+
+	  @msrpservice.kill
+
     sipsocket_stop
   end
+
+	# Actions when clients connect
+	def on_client_connect(c)
+		@clients[c] = {
+		  :name          => "#{c.peerhost}:#{c.peerport}",
+		  :ip            => c.peerhost,
+		  :port          => c.peerport,
+		  :heartbeats    => "",
+		  :server_random => [Time.now.to_i].pack("N") + Rex::Text.rand_text(28)
+		}
+		print_status("#{@clients[c][:name]} is connected")
+	end
+
+	# Actions when clients send data 
+	def on_client_data(c)
+		data = c.get_once
+		return if not data
+		print_status("#{@clients[c][:name]} Data Received:\n#{data.gsub("\r\n","\t\r\n")}")
+		@clients[c][:buff] ||= ""
+		@clients[c][:buff] << data
+		@clients[c][:msrp] ||= {}
+		@clients[c] = process_request(@clients,c)
+		@fuzzingtarget ||= c
+	end
+
 end
 

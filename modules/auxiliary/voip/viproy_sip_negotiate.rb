@@ -18,8 +18,10 @@ class Metasploit3 < Msf::Auxiliary
       'Version'     => '1',
       'Description' => 'Negotiate Discovery Module for SIP Services',
       'Author'      => 'fozavci',
-      'License'     => MSF_LICENSE
+      'License'     => 'GPL'
     )
+
+    deregister_options('CPORT')
 
     register_options(
     [
@@ -32,7 +34,6 @@ class Metasploit3 < Msf::Auxiliary
     register_advanced_options(
     [
       Opt::CHOST,
-      Opt::CPORT(5060),
       OptString.new('USERAGENT',   [ false, "SIP user agent" ]),
       OptString.new('REALM',   [ false, "The login realm to probe at each host", nil]),
       OptString.new('MACADDRESS',   [ false, "MAC Address for Vendor", "000000000000"]),

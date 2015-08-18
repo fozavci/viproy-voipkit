@@ -15,7 +15,7 @@ class Metasploit3 < Msf::Auxiliary
       'Name'           => 'Viproy MITM Proxy for TCP/TLS',
       'Version'        => '1',
       'Description'    => 'MITM Proxy for TCP/TLS',
-      'License'        => MSF_LICENSE,
+      'License'        => 'GPL',
       'Author'         => 'fozavci',
       'References'     =>	[],
     )

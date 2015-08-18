@@ -17,7 +17,7 @@ class Metasploit3 < Msf::Auxiliary
       'Name'				=> 'Viproy Cisco Call Analyser',
       'Description' => 'This module helps to test call features for Skinny',
       'Author'      => 'fozavci',
-      'License'     =>  MSF_LICENSE,
+      'License'     =>  'GPL',
     )
     register_options(
       [

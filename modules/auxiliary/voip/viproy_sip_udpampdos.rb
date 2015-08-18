@@ -18,7 +18,7 @@ class Metasploit3 < Msf::Auxiliary
       'Version'     => '1',
       'Description' => 'DDOS SIP UDP amplification attack module',
       'Author'      => 'fozavci',
-      'License'     => MSF_LICENSE
+      'License'     => 'GPL'
     )
 
     begin

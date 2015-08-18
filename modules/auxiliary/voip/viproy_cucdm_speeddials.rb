@@ -25,7 +25,7 @@ class Metasploit3 < Msf::Auxiliary
               ['CVE', 'CVE-2014-3300'],
               ['BID', '68331'],
           ],
-      'License'     => MSF_LICENSE
+      'License'     => 'GPL'
     )
 
     register_options(

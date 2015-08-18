@@ -20,7 +20,7 @@ class Metasploit3 < Msf::Auxiliary
       'Version'     => '1',
       'Description' => 'Message Testing Module for SIP Services',
       'Author'      => 'fozavci',
-      'License'     => MSF_LICENSE
+      'License'     => 'GPL'
     )
 
     deregister_options('RHOSTS','USER_AS_PASS', 'DB_ALL_CREDS', 'DB_ALL_USERS', 'DB_ALL_PASS', 'THREADS','USERPASS_FILE','PASS_FILE','PASSWORD','BLANK_PASSWORDS', 'BRUTEFORCE_SPEED','STOP_ON_SUCCESS' )
@@ -100,7 +100,7 @@ class Metasploit3 < Msf::Auxiliary
     end
 
     if datastore['TO'] =~ /FUZZ/
-      from=Rex::Text.pattern_create(datastore['TO'].split(" ")[1].to_i)
+      to=Rex::Text.pattern_create(datastore['TO'].split(" ")[1].to_i)
     else
       to = datastore['TO']
     end
@@ -109,10 +109,10 @@ class Metasploit3 < Msf::Auxiliary
     if datastore['MESSAGE_CONTENT'] =~ /FUZZ/
       message = Rex::Text.pattern_create(datastore['MESSAGE_CONTENT'].split(" ")[1].to_i)
     else
-      message = datastore['MESSAGE_CONTENT'].gsub("\\n","\r\n")
+      message = datastore['MESSAGE_CONTENT'].gsub("\n","\r\n")
     end
 
-    # Message Content
+    # Message Type
     if datastore['MESSAGE_TYPE'] =~ /FUZZ/
       messagetype = Rex::Text.pattern_create(datastore['MESSAGE_TYPE'].split(" ")[1].to_i)
     else

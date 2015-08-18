@@ -18,8 +18,10 @@ class Metasploit3 < Msf::Auxiliary
       'Version'     => '1',
       'Description' => 'Register Discovery Module for SIP Services',
       'Author'      => 'fozavci',
-      'License'     => MSF_LICENSE
+      'License'     => 'GPL'
     )
+
+    deregister_options('CPORT')
 
     register_options(
     [
@@ -35,7 +37,6 @@ class Metasploit3 < Msf::Auxiliary
     register_advanced_options(
     [
       Opt::CHOST,
-      Opt::CPORT(5060),
       OptString.new('USERAGENT',   [ false, "SIP user agent" ]),
       OptString.new('DELAY',   [true, 'Delay in seconds',"0"]),
       OptString.new('REALM',   [ false, "The login realm to probe at each host", nil]),
@@ -114,7 +115,7 @@ class Metasploit3 < Msf::Auxiliary
           printresults(results) if datastore['DEBUG'] == true
         end
 
-        print_debug("Register request is sending.") if datastore["DEBUG"]
+        vprint_status("Register request is sending.") if datastore["DEBUG"]
 
         results = send_register(
             'login' => login,

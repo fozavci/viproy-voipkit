@@ -16,7 +16,7 @@ class Metasploit3 < Msf::Auxiliary
       'Name'				=> 'Viproy Cisco Skinny Register Analyser',
       'Description' => 'This module helps to develop register tests for Skinny',
       'Author'      => 'fozavci',
-      'License'     =>  MSF_LICENSE,
+      'License'     =>  'GPL',
     )
     register_options(
       [
