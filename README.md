@@ -1,8 +1,14 @@
 #Viproy - VoIP Penetration Testing Kit
 Viproy Voip Pen-Test Kit provides penetration testing modules for VoIP networks. It supports signalling analysis for SIP and Skinny protocols, IP phone services and network infrastructure. Viproy 2.0 is released at Blackhat Arsenal USA 2014 with TCP/TLS support for SIP, vendor extentions support, Cisco CDP spoofer/sniffer, Cisco Skinny protocol analysers, VOSS exploits and network analysis modules. Furthermore, Viproy provides SIP and Skinny development libraries for custom fuzzing and analyse modules.
 
+##Current Version and Updates
+Current version: 2.99.1
+
 ##Homepage of Project
 http://viproy.com<br>
+
+##The Art of VoIP Hacking Workshop Slide Deck
+http://www.slideshare.net/fozavci/the-art-of-voip-hacking-defcon-23-workshop
 
 ##Black Hat USA 2014 - Network: VoIP Wars Attack of the Cisco Phones
 https://www.youtube.com/watch?v=hqL25srtoEY
@@ -32,7 +38,14 @@ https://www.youtube.com/watch?v=AbXh_L0-Y5A
 * CUCDM Speed Dial Manipulator
 * MITM Proxy TCP
 * MITM Proxy UDP
-* Cisco CDP Spoofer
+* Cisco CDP Spoofer 
+* Boghe VoIP Client INVITE PoC Exploit (New)
+* Boghe VoIP Client MSRP PoC Exploit (New)
+* SIP Message with INVITE Support (New)
+* Sample SIP SDP Fuzzer (New)
+* MSRP Message Tester with SIP INVITE Support (New)
+* Sample MSRP Message Fuzzer with SIP INVITE Support (New)
+* Sample MSRP Message Header Fuzzer with SIP INVITE Support (New)
 
 #Documentation
 
@@ -41,6 +54,7 @@ Copy "lib" and "modules" folders' content to Metasploit root directory.<br>
 Mixins.rb File (lib/msf/core/auxiliary/mixins.rb) should contains the following lines<br>
 require 'msf/core/auxiliary/sip'<br>
 require 'msf/core/auxiliary/skinny'<br>
+require 'msf/core/auxiliary/msrp'<br>
 
 ##Usage of SIP Modules
 https://github.com/fozavci/viproy-voipkit/blob/master/SIPUSAGE.md
