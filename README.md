@@ -9,24 +9,30 @@ Pre-installed repo: https://github.com/fozavci/metasploit-framework-with-viproy
 ## Homepage of Project
 http://viproy.com<br>
 
-## Black Hat USA 2016 - VoIP Wars: The Phreakers Awaken
-https://www.slideshare.net/fozavci/voip-wars-the-phreakers-awaken
+## Talks
+
+### Black Hat USA 2016 - VoIP Wars: The Phreakers Awaken
+https://www.slideshare.net/fozavci/voip-wars-the-phreakers-awaken<br>
 https://www.youtube.com/watch?v=rl_kp5UZKlw
 
-## Black Hat Europe 2015 - VoIP Wars: Destroying Jar Jar Lync
-http://www.slideshare.net/fozavci/voip-wars-destroying-jar-jar-lync-unfiltered-version
+### DEF CON 24 - VoIP Wars: The Live Workshop
+To be added later
+
+### Black Hat Europe 2015 - VoIP Wars: Destroying Jar Jar Lync
+http://www.slideshare.net/fozavci/voip-wars-destroying-jar-jar-lync-unfiltered-version<br>
 https://youtu.be/TMdiXYzY8qY
 
-## The Art of VoIP Hacking Workshop Slide Deck
-http://www.slideshare.net/fozavci/the-art-of-voip-hacking-defcon-23-workshop
+### DEF CON 23 - The Art of VoIP Hacking Workshop Slide Deck
+http://www.slideshare.net/fozavci/the-art-of-voip-hacking-defcon-23-workshop<br>
+https://youtu.be/hwDD7K9oXeI
 
-## Black Hat USA 2014 - VoIP Wars: Attack of the Cisco Phones
+### Black Hat USA 2014 / DEF CON 22 - VoIP Wars: Attack of the Cisco Phones
 https://www.youtube.com/watch?v=hqL25srtoEY
 
-## DEF CON 21 - VoIP Wars: Return of the SIP
+### DEF CON 21 - VoIP Wars: Return of the SIP
 https://www.youtube.com/watch?v=d6cGlTB6qKw
 
-## Attacking SIP/VoIP Servers Using Viproy
+### Attacking SIP/VoIP Servers Using Viproy
 https://www.youtube.com/watch?v=AbXh_L0-Y5A
 
 ## Current Testing Modules
