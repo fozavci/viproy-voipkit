@@ -6,7 +6,7 @@
 
 require 'msf/core'
 
-class Metasploit3 < Msf::Auxiliary
+class MetasploitModule < Msf::Auxiliary
 
   include Msf::Exploit::Capture
   include Msf::Auxiliary::Scanner
@@ -132,11 +132,7 @@ class Metasploit3 < Msf::Auxiliary
           req_type = 'INVITE'
         end
         vprint_status("Request Type is #{req_type}")
-        while(not iplst.nil? and not iplst.empty?)
-          a = []
-          1.upto(thread_num) do
-            a << framework.threads.spawn("Module(#{self.refname})", false, iplst.shift) do |src_ip|
-              next if src_ip.nil?
+            iplst.each do |src_ip|
               print_status "Sending Spoofed Packets for Source IP : #{src_ip}"
 
               src_ports.each do |src_port|
@@ -152,13 +148,9 @@ class Metasploit3 < Msf::Auxiliary
 
                 sockinfo["src_ip"] = src_ip
                 sockinfo["src_port"] = src_port
-
                 send_request(sockinfo,req_type,message)
               end
             end
-          end
-          a.map {|x| x.join }
-        end
         print_good("Spoofed Trust Sweep Completed")
       end
     rescue Rex::TimeoutError, Rex::Post::Meterpreter::RequestError
@@ -168,8 +160,8 @@ class Metasploit3 < Msf::Auxiliary
   end
 
   def send_request(sockinfo,req_type,message)
-    # Assembling Packet
     open_pcap
+    # Assembling Packet
     p = PacketFu::UDPPacket.new
     p.ip_saddr = sockinfo["src_ip"]
     p.ip_daddr = sockinfo["ip"]
@@ -228,9 +220,9 @@ class Metasploit3 < Msf::Auxiliary
       from = "#{from}@#{src_ip}"
     end
 
-    if ! ( to =~ /@/ )
-      to = "#{to}@#{src_ip}"
-    end
+    #if ! ( to =~ /@/ )
+    #  to = "#{to}@#{src_ip}"
+    #end
 
     if fromname == nil
       data += "From: <sip:#{from}>\r\n"

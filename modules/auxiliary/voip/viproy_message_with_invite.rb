@@ -7,7 +7,7 @@
 require 'msf/core'
 require 'digest/md5'
 
-class Metasploit3 < Msf::Auxiliary
+class MetasploitModule < Msf::Auxiliary
 
   include Msf::Auxiliary::Report
   include Msf::Auxiliary::Scanner
@@ -53,7 +53,7 @@ class Metasploit3 < Msf::Auxiliary
         OptString.new('USERAGENT',   [ false, "SIP user agent" ]),
         OptBool.new('DEBUG',   [ false, "Debug Level", false]),
         OptString.new('REALM',   [ false, "The login realm to probe at each host", nil]),
-        OptString.new('LOGINMETHOD', [false, 'Login Method (REGISTER | INVITE)', "INVITE"]),
+        OptString.new('LOGINMETHOD', [false, 'Login Method (REGISTER | MESSAGE)', "MESSAGE"]),
         OptBool.new('TOEQFROM', [true, 'FROM will be cloned from TO for all users', false]),
         OptString.new('CUSTOMHEADER', [false, 'Custom Headers for Requests', nil]),
         OptString.new('P-Asserted-Identity', [false, 'Proxy Identity Field. Sample: (IVR, 200@192.168.0.1)', nil]),

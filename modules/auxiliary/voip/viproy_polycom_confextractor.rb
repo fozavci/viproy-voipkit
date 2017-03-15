@@ -6,7 +6,7 @@
 
 require 'msf/core'
 
-class Metasploit3 < Msf::Auxiliary
+class MetasploitModule < Msf::Auxiliary
 
   include Msf::Auxiliary::Report
   include Msf::Exploit::Remote::HttpClient
@@ -67,7 +67,7 @@ class Metasploit3 < Msf::Auxiliary
             print_good("MAC address\t: #{mac}")
             print_good("Extension\t: #{ext}")
             print_good("Username\t: #{username}")
-            print_good("Password\t: #{password}")
+            print_good("Password\t: #{password}\n")
           else
             vprint_status("Phone configuration file could not parsed")
           end
@@ -83,12 +83,12 @@ class Metasploit3 < Msf::Auxiliary
   def extract_conf_file(data)
     doc = Nokogiri::XML(data)
     file=doc.at("APPLICATION")["CONFIG_FILES"].split(",")[1]
-    vvprint_status(data) if datastore["DEBUG"] == true
+    vprint_status(data) if datastore["DEBUG"] == true
     return file
   end
   def extract_creds(data)
     doc = Nokogiri::XML(data)
-    vvprint_status(data) if datastore["DEBUG"] == true
+    vprint_status(data) if datastore["DEBUG"] == true
     case
       when doc.at('phone')
         d=doc.at('phone')

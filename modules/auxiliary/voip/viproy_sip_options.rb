@@ -6,7 +6,7 @@
 
 require 'msf/core'
 
-class Metasploit3 < Msf::Auxiliary
+class MetasploitModule < Msf::Auxiliary
 
   include Msf::Auxiliary::Report
   include Msf::Auxiliary::Scanner
@@ -55,30 +55,35 @@ class Metasploit3 < Msf::Auxiliary
     realm = datastore['REALM']
 
     rports = Rex::Socket.portspec_crack(datastore['RPORTS'])
+    threads = []
     rports.each { |rport|
-      sockinfo={}
-      sockinfo["listen_addr"] = datastore['CHOST']
-      sockinfo["listen_port"] = datastore['CPORT']
-      sockinfo["dest_addr"] = dest_addr
-      sockinfo["dest_port"] = rport
-      sockinfo["proto"] = datastore['PROTO'].downcase
-      sockinfo["vendor"] = datastore['VENDOR'].downcase
-      sockinfo["macaddress"] = datastore['MACADDRESS']
 
-      # sending options
-      sipsocket_start(sockinfo)
-      sipsocket_connect
-      results = send_options(
-        'login' 	    => login,
-        'loginmethod'  	=> "REGISTER",
-        'user'      	=> user,
-        'password'  	=> password,
-        'realm'		  	=> realm,
-        'from'    		=> datastore['FROM'],
-        'to'    	  	=> datastore['TO']
-      )
-      printresults(results)
-      sipsocket_stop
-    }
+	      sockinfo={}
+	      sockinfo["listen_addr"] = datastore['CHOST']
+	      sockinfo["listen_port"] = datastore['CPORT']
+	      sockinfo["dest_addr"] = dest_addr
+	      sockinfo["dest_port"] = rport
+	      sockinfo["proto"] = datastore['PROTO'].downcase
+	      sockinfo["vendor"] = datastore['VENDOR'].downcase
+	      sockinfo["macaddress"] = datastore['MACADDRESS']
+
+
+	      # sending options
+	      sipsocket_start(sockinfo)
+	      sipsocket_connect
+	      results = send_options(
+		'login' 	    => login,
+		'loginmethod'  	=> "REGISTER",
+		'user'      	=> user,
+		'password'  	=> password,
+		'realm'		  	=> realm,
+		'from'    		=> datastore['FROM'],
+		'to'    	  	=> datastore['TO']
+	      )
+	      printresults(results)
+	      sipsocket_stop
+      }
+
   end
-end
+
+  end

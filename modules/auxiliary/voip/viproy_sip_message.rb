@@ -6,7 +6,7 @@
 
 require 'msf/core'
 
-class Metasploit3 < Msf::Auxiliary
+class MetasploitModule < Msf::Auxiliary
 
   include Msf::Auxiliary::Report
   include Msf::Auxiliary::Scanner
@@ -109,7 +109,15 @@ class Metasploit3 < Msf::Auxiliary
     if datastore['MESSAGE_CONTENT'] =~ /FUZZ/
       message = Rex::Text.pattern_create(datastore['MESSAGE_CONTENT'].split(" ")[1].to_i)
     else
-      message = datastore['MESSAGE_CONTENT'].gsub("\n","\r\n")
+      message = datastore['MESSAGE_CONTENT']
+
+      if message != nil
+	message.gsub("\n","\r\n")
+      else
+	print_error("MESSAGE_CONTENT is empty")
+	return
+      end
+
     end
 
     # Message Type

