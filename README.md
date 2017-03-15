@@ -2,19 +2,27 @@
 Viproy Voip Pen-Test Kit provides penetration testing modules for VoIP networks. It supports signalling analysis for SIP and Skinny protocols, IP phone services and network infrastructure. Viproy 2.0 is released at Blackhat Arsenal USA 2014 with TCP/TLS support for SIP, vendor extentions support, Cisco CDP spoofer/sniffer, Cisco Skinny protocol analysers, VOSS exploits and network analysis modules. Furthermore, Viproy provides SIP and Skinny development libraries for custom fuzzing and analyse modules.
 
 ##Current Version and Updates
-Current version: 2.99.1 (Requires ruby 2.1.X and Metasploit Framework Github Repo) <br>
+Current version: 4.1 (Requires ruby 2.1.X and Metasploit Framework Github Repo) <br>
 Pre-installed repo: https://github.com/fozavci/metasploit-framework-with-viproy
 
 ##Homepage of Project
 http://viproy.com<br>
 
+##Black Hat USA 2016 - VoIP Wars: The Phreakers Awaken
+https://www.slideshare.net/fozavci/voip-wars-the-phreakers-awaken
+https://www.youtube.com/watch?v=rl_kp5UZKlw
+
+##Black Hat Europe 2015 - VoIP Wars: Destroying Jar Jar Lync
+http://www.slideshare.net/fozavci/voip-wars-destroying-jar-jar-lync-unfiltered-version
+https://youtu.be/TMdiXYzY8qY
+
 ##The Art of VoIP Hacking Workshop Slide Deck
 http://www.slideshare.net/fozavci/the-art-of-voip-hacking-defcon-23-workshop
 
-##Black Hat USA 2014 - Network: VoIP Wars Attack of the Cisco Phones
+##Black Hat USA 2014 - VoIP Wars: Attack of the Cisco Phones
 https://www.youtube.com/watch?v=hqL25srtoEY
 
-##DEF CON 21 - VoIP Wars Return of the SIP
+##DEF CON 21 - VoIP Wars: Return of the SIP
 https://www.youtube.com/watch?v=d6cGlTB6qKw
 
 ##Attacking SIP/VoIP Servers Using Viproy
