@@ -1,6 +1,6 @@
-#Skinny Modules Usage
+# Skinny Modules Usage
 
-##Skinny Registration
+## Skinny Registration
 
 use auxiliary/voip/viproy_skinny_register <br>
 set RHOST 192.168.0.205<br>
@@ -13,7 +13,7 @@ run<br>
 
 http://www.viproy.com/captures/skinny_register.pcapng<br>
 
-##Skinny Call Forward
+## Skinny Call Forward
 
 use auxiliary/voip/viproy_skinny_callforward <br>
 set RHOST 192.168.0.205<br>
@@ -25,7 +25,7 @@ run<br>
 
 http://www.viproy.com/captures/skinny_callforward.pcapng<br>
 
-##Skinny Call
+## Skinny Call
 
 use auxiliary/voip/viproy_skinny_call<br>
 set MAC 000C29E58CA3<br>
