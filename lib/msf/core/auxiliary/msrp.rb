@@ -10,6 +10,8 @@
 require 'rex/socket'
 require 'timeout'
 
+Msf::Auxiliary::Msrp = ""
+
 module Msf
 
 module Auxiliary::MSRP
