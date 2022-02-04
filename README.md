@@ -1,3 +1,8 @@
+# Discontinued
+Viproy was a PoC VoIP security assessment tool which had several modules and exploits to maintain. However, it was developed as a modules set to Metasploit Framework. As Metasploit Framework had significant updates, Viproy's current modules won't be able to work unless you use legacy Kali Linux and Metasploit Framework versions. I discontinued the project a long time ago as I stopped working on the VoIP and UC project for last 5 years. <br>
+
+If you still need these modules, "infosecconsultant" has prepared a note on the Issues section (https://github.com/fozavci/viproy-voipkit/issues/22). I suggest you to take a look at it, if it works for you, please also express your appreciation to them. I'm not planning to improve any code base or documentation, but please feel free to fork this repository and make your own.    
+
 # Viproy - VoIP Penetration Testing Kit
 Viproy Voip Pen-Test Kit provides penetration testing modules for VoIP networks. It supports signalling analysis for SIP and Skinny protocols, IP phone services and network infrastructure. Viproy 2.0 is released at Blackhat Arsenal USA 2014 with TCP/TLS support for SIP, vendor extentions support, Cisco CDP spoofer/sniffer, Cisco Skinny protocol analysers, VOSS exploits and network analysis modules. Furthermore, Viproy provides SIP and Skinny development libraries for custom fuzzing and analyse modules. Viproy VoIP Kit was used for VoIP exploit demonstrations in VoIP Wars presentation series, Departed Communications presentationm series and live VoIP Wars trainings in Black Hat, DEF CON, HITB, AusCERT and Troopers. 
 
