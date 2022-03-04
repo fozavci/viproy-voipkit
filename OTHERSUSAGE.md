@@ -1,6 +1,6 @@
-#Usage of Auxilary Viproy Modules
+# Usage of Auxilary Viproy Modules
 
-##CDP Tester
+## CDP Tester
 
 set INTERFACE en5<br>
 set ACTION Sniffer<br>
@@ -15,9 +15,9 @@ run<br>
 
 http://www.viproy.com/captures/viproy_cdp.pcapng<br>
 
-#Cisco CUCDM Testing Modules Usage
+# Cisco CUCDM Testing Modules Usage
 
-##Call Forwarding
+## Call Forwarding
 
 use auxiliary/voip/viproy_cucdm_callforward <br>
 set RHOST 192.168.1.151<br>
@@ -35,7 +35,7 @@ run<br>
 
 http://www.viproy.com/captures/viproy_cucdm_callforward.pcapng<br>
 
-##Speeddial Manipulation
+## Speeddial Manipulation
 
 use auxiliary/voip/viproy_cucdm_speeddials <br>
 set RHOST 192.168.1.151<br>
@@ -61,4 +61,4 @@ run<br><br>
 set ACTION INFO<br>
 run<br>
 
-http://www.viproy.com/captures/viproy_cucdm_speeddial.pcapng<br>
+http://www.viproy.com/captures/viproy_cucdm_speeddial.pcapng<br
